@@ -1,0 +1,161 @@
+.cpu-monitoring-container {
+  padding: 6px 18px 18px;
+}
+
+/* CPU Usage Card styling */
+.cpu-usage-card {
+  position: relative;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 4px 6px -1px var(--shadow-sm), 0 2px 4px -1px var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.cpu-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cpu-title-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.cpu-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--primary-light);
+  color: var(--primary-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.cpu-title-left h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cpu-stats-right {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.stat-summary-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.stat-lbl {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.stat-val {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stat-val.highlight {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+/* Chart Styles */
+.cpu-chart-wrapper {
+  position: relative;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.chart-x-label {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin-top: 14px;
+}
+
+/* Footer Statistics Grid */
+.cpu-card-footer {
+  display: flex;
+  border-top: 1px solid var(--border-color);
+  padding-top: 24px;
+  margin-top: 12px;
+}
+
+.footer-metric-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.metric-lbl {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.metric-val {
+  font-size: 26px;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.power-bottom-section{
+    display:flex;
+    gap:16px;
+    margin-top:24px;
+}
+
+.energy-card{
+    flex:1;
+    background:var(--card-bg);
+    border:1px solid var(--border-color);
+    border-radius:16px;
+    padding:24px;
+}
+
+.stats-card{
+    flex:1;
+    background:var(--card-bg);
+    border:1px solid var(--border-color);
+    border-radius:16px;
+
+    display:flex;
+    justify-content:space-around;
+    align-items:center;
+
+    padding:24px;
+}
+
+.energy-value{
+    font-size:38px;
+    font-weight:700;
+    color:var(--primary-color);
+    margin-top:12px;
+}
+
+@media (max-width:900px){
+
+.power-bottom-section{
+    flex-direction:column;
+}
+
+}

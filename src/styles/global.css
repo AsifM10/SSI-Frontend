@@ -1,0 +1,482 @@
+body {
+  background: var(--background-color);
+  color: var(--text-primary);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* =========================
+   BUTTON SYSTEM
+========================= */
+
+button {
+  border: none;
+  outline: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn {
+  height: 40px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 18px;
+  white-space: nowrap;
+  transition: var(--transition);
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--gradient-primary);
+  color: var(--text-on-primary);
+  border: none;
+  box-shadow: 0 2px 10px var(--shadow-md);
+}
+
+.btn-primary:hover {
+  background: var(--gradient-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px var(--shadow-lg);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-outline {
+  background: var(--card-bg);
+  color: var(--text-primary);
+  border: 1.5px solid var(--border-color);
+}
+
+.btn-outline:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: var(--primary-light);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+}
+
+.btn-ghost:hover {
+  background: var(--hover-bg);
+  color: var(--primary-color);
+}
+
+.btn-danger {
+  background: var(--gradient-danger);
+  color: #F6F8FB;
+  border: none;
+  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.25);
+}
+
+.btn-danger:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.35);
+}
+
+.btn-sm {
+  height: 34px;
+  border-radius: 8px;
+  font-size: 12px;
+  padding: 0 14px;
+}
+
+.btn-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-muted);
+  transition: var(--transition);
+}
+
+.btn-icon:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: var(--primary-light);
+}
+
+input {
+  border: none;
+  outline: none;
+  font-family: inherit;
+}
+
+* {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.2s ease;
+}
+
+/* =========================
+   CARD ACCENT SYSTEM
+========================= */
+
+.metric-card,
+.alert-card,
+.system-info-card,
+.department-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card,
+.department-card,
+.alert-card,
+.system-info-card,
+.fp-modal,
+.modal-overlay > div:not(.modal-overlay) {
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.3s ease;
+}
+
+.metric-card:hover,
+.department-card:hover,
+.alert-card:hover,
+.system-info-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px var(--shadow-md), 0 0 40px var(--shadow-sm);
+}
+
+.modal-overlay {
+  animation: overlayFade 0.2s ease;
+}
+
+@keyframes overlayFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* =========================
+   ENTRANCE ANIMATIONS
+========================= */
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in {
+  animation: fadeInUp 0.6s ease both;
+}
+
+.animate-in-d1 { animation-delay: 0.1s; }
+.animate-in-d2 { animation-delay: 0.2s; }
+.animate-in-d3 { animation-delay: 0.3s; }
+.animate-in-d4 { animation-delay: 0.4s; }
+.animate-in-d5 { animation-delay: 0.5s; }
+.animate-in-d6 { animation-delay: 0.6s; }
+
+/* =========================
+   TABLE ACCENT SYSTEM
+========================= */
+
+table thead th,
+.table-heading,
+.viewer-heading,
+.projects-table thead th,
+.department-table thead th {
+  position: relative;
+}
+
+table thead th::after,
+.table-heading::after,
+.viewer-heading::after,
+.projects-table thead th::after,
+.department-table thead th::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--gradient-primary);
+  opacity: 0.3;
+}
+
+/* =========================
+   ACCENT BADGE / TAG SYSTEM
+========================= */
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tag-primary {
+  background: var(--primary-light);
+  color: var(--primary-color);
+}
+
+.tag-success {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.tag-warning {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.tag-danger {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.tag-rose {
+  background: rgba(244, 63, 94, 0.1);
+  color: var(--accent-rose);
+}
+
+.tag-amber {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--accent-amber);
+}
+
+.tag-emerald {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--accent-emerald);
+}
+
+.tag-cyan {
+  background: rgba(6, 182, 212, 0.1);
+  color: var(--accent-cyan);
+}
+
+.tag-violet {
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--accent-violet);
+}
+
+/* =========================
+   DIVIDER
+========================= */
+
+.divider {
+  height: 1px;
+  background: var(--gradient-primary);
+  opacity: 0.15;
+  border: none;
+  margin: 16px 0;
+}
+
+/* =========================
+   SECTION HEADER
+========================= */
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.section-header::before {
+  content: "";
+  width: 4px;
+  height: 24px;
+  border-radius: 4px;
+  background: var(--gradient-primary);
+  flex-shrink: 0;
+}
+
+.section-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* =========================
+   STAT CARD (small metric boxes)
+========================= */
+
+
+
+/* =========================
+   CHART / RECHARTS
+========================= */
+
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: var(--border-color) !important;
+}
+
+.recharts-text {
+  fill: var(--text-secondary) !important;
+}
+
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: var(--card-bg) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 24px var(--shadow-lg) !important;
+}
+
+.recharts-tooltip-item-name,
+.recharts-tooltip-item-value {
+  color: var(--text-primary) !important;
+}
+
+.recharts-legend-item-text {
+  color: var(--text-secondary) !important;
+}
+
+/* =========================
+   SCROLLBAR
+========================= */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* =========================
+   TOAST MESSAGES
+========================= */
+
+body .ant-message-custom-content {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+
+body .ant-message-custom-content > .anticon {
+  font-size: 20px !important;
+}
+
+body .ant-message-custom-content.ant-message-success {
+  color: #16a34a !important;
+}
+
+body .ant-message-custom-content.ant-message-error {
+  color: #dc2626 !important;
+}
+
+/* =========================
+   ANTD OVERRIDES
+========================= */
+
+body .ant-popconfirm {
+  border-radius: 14px !important;
+  overflow: hidden;
+}
+
+body .ant-popconfirm .ant-popconfirm-message-title {
+  font-weight: 600 !important;
+}
+
+body .ant-popconfirm .ant-btn-primary {
+  background: var(--gradient-primary) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  height: 34px !important;
+  font-weight: 600 !important;
+}
+
+body .ant-popconfirm .ant-btn-primary:hover {
+  background: var(--gradient-primary-hover) !important;
+}
+
+body .ant-popconfirm .ant-btn {
+  border-radius: 8px !important;
+  height: 34px !important;
+  font-weight: 500 !important;
+}
+
+body .ant-modal-content {
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+
+body .ant-modal-header {
+  border-bottom: 2px solid transparent !important;
+  border-image: var(--gradient-primary) 1 !important;
+}
+
+body .ant-modal-title {
+  font-weight: 700 !important;
+  font-size: 18px !important;
+}
+
+/* =========================
+   LOADING CONTAINER
+========================= */
+
+.loading-container {
+  padding: 60px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 15px;
+  animation: loadingPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes loadingPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* =========================
+   EMPTY STATE
+========================= */
+
+.empty-state {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.empty-state-icon {
+  font-size: 40px;
+  margin-bottom: 14px;
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+.empty-state-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.empty-state-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+}

@@ -1,0 +1,26 @@
+.user-page {
+  padding: 28px;
+}
+
+/* ---------- Toast Messages ---------- */
+
+.toast-success {
+  border-radius: 14px !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15), 0 3px 10px rgba(0,0,0,0.08) !important;
+  border: 1px solid var(--success-border) !important;
+  background: var(--card-bg) !important;
+}
+
+.toast-error {
+  border-radius: 14px !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15), 0 3px 10px rgba(0,0,0,0.08) !important;
+  border: 1px solid var(--danger-border) !important;
+  background: var(--card-bg) !important;
+}
+
+.toast-info {
+  border-radius: 14px !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15), 0 3px 10px rgba(0,0,0,0.08) !important;
+  border: 1px solid var(--border-color) !important;
+  background: var(--card-bg) !important;
+}

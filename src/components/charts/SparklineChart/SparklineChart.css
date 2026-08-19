@@ -1,0 +1,8 @@
+.sparkline-wrapper {
+  width: 100%;
+  height: 42px;
+
+  overflow: hidden;
+
+  margin-top: -2px;
+}

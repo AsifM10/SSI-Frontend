@@ -1,0 +1,96 @@
+.monitoring-page {
+  padding: 6px 18px 18px;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media screen and (max-width: 1300px) {
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Metrics carousel */
+.metrics-carousel {
+  display: flex;
+  flex-direction: column;
+}
+
+.metrics-carousel-viewport {
+  overflow: hidden;
+  margin-top: 28px;
+}
+
+.metrics-carousel-track {
+  display: flex;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.metrics-carousel-slide {
+  min-width: 100%;
+}
+
+.metrics-carousel-nav {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.metrics-nav-btn {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+.metrics-nav-btn:hover:not(:disabled) {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.metrics-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.metrics-carousel-dots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.metrics-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  border: none;
+  background: var(--border-color);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.metrics-dot.active {
+  width: 26px;
+  background: var(--primary-color);
+}

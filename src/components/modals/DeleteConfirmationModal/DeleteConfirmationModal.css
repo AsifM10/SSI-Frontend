@@ -1,0 +1,64 @@
+.delete-confirm-modal .ant-modal-header {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.delete-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.delete-modal-icon {
+  color: var(--danger-color);
+  font-size: 18px;
+}
+
+.delete-modal-description {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.delete-modal-entity {
+  margin-top: 12px;
+  font-size: 15px;
+  color: var(--text-primary);
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.delete-modal-details {
+  margin-top: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.delete-modal-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
+.delete-modal-detail-row:nth-child(even) {
+  background: var(--surface-2);
+}
+
+.detail-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.detail-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}

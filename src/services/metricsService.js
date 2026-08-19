@@ -1,0 +1,17 @@
+import api from "./api";
+
+export const getMachineOverview = async (
+  machineId,
+  range = "15m"
+) => {
+  const response = await api.get(
+    `/api/machines/${machineId}/metrics/overview`,
+    {
+      params: {
+        range,
+      },
+    }
+  );
+
+  return response.data.data;
+};

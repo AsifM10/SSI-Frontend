@@ -1,0 +1,440 @@
+/* =========================
+   OVERLAY
+========================= */
+
+.machine-modal-overlay {
+  position: fixed;
+  inset: 0;
+
+  background:
+    var(--overlay-bg);
+
+  backdrop-filter: blur(4px);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  z-index: 999;
+}
+
+/* =========================
+   MODAL
+========================= */
+
+.machine-create-modal {
+  width: 600px;
+
+  background: var(--card-bg);
+
+  border-radius: 20px;
+
+  padding: 16px;
+
+  box-shadow:
+    0 20px 60px var(--shadow-lg);
+
+  animation:
+    machineModalFade 0.25s ease;
+}
+
+@keyframes machineModalFade {
+
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(10px)
+      scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0)
+      scale(1);
+  }
+
+}
+
+/* =========================
+   HEADER
+========================= */
+
+.machine-create-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.machine-create-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+
+  color: var(--text-primary);
+}
+
+.machine-create-header p {
+  margin-top: 4px;
+
+  font-size: 13px;
+
+  color: var(--text-secondary);
+}
+
+/* =========================
+   CLOSE
+========================= */
+
+.machine-create-close {
+  width: 32px;
+  height: 32px;
+
+  border-radius: 10px;
+
+  background: transparent;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: var(--text-secondary);
+}
+
+.machine-create-close:hover {
+  background: var(--primary-light);
+}
+
+/* =========================
+   STEPPER
+========================= */
+
+.machine-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin: 10px 0 14px;
+  padding: 6px 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+.machine-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.machine-step-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--border-color);
+  color: var(--text-muted);
+  transition: 0.3s ease;
+}
+
+.machine-step.active .machine-step-num {
+  background: var(--gradient-primary);
+  color: #111827;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.machine-step.done .machine-step-num {
+  background: var(--primary-color);
+  color: #111827;
+}
+
+.machine-step-num svg {
+  font-size: 14px;
+}
+
+.machine-step-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.machine-step.active .machine-step-label {
+  color: var(--text-primary);
+}
+
+.machine-stepper-line {
+  width: 44px;
+  height: 2px;
+  background: var(--border-color);
+  margin: 0 8px;
+  align-self: flex-start;
+  margin-top: 12px;
+  border-radius: 2px;
+}
+
+/* =========================
+   BODY
+========================= */
+
+.machine-create-body {
+  margin-top: 12px;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(6, 1fr);
+
+  gap: 10px;
+}
+
+/* =========================
+   FIELD
+========================= */
+
+.machine-create-field {
+  display: flex;
+  flex-direction: column;
+  grid-column: span 3;
+}
+
+.machine-create-third {
+  grid-column: span 2;
+}
+
+.machine-create-full {
+  grid-column: span 6;
+}
+
+.machine-create-field label {
+  margin-bottom: 4px;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  color: var(--text-primary);
+}
+
+/* =========================
+   INPUT
+========================= */
+
+.machine-create-input,
+.machine-create-select {
+  height: 40px;
+
+  border: 1px solid var(--border-color);
+
+  border-radius: 12px;
+
+  padding: 0 12px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+
+  background: var(--card-bg);
+
+  transition: 0.2s ease;
+}
+
+.machine-create-input:focus-within,
+.machine-create-tags:focus {
+  border-color: var(--primary-color);
+
+  box-shadow:
+    0 0 0 4px var(--focus-ring);
+}
+
+/* =========================
+   ICON
+========================= */
+
+.machine-create-icon {
+  font-size: 15px;
+
+  color: var(--text-secondary);
+}
+
+/* =========================
+   INPUT FIELD
+========================= */
+
+.machine-create-input input {
+  flex: 1;
+
+  width: 100%;
+
+  height: 100%;
+
+  background: transparent;
+
+  font-size: 13px;
+
+  color: var(--text-primary);
+}
+
+.machine-create-input input::placeholder,
+.machine-create-tags::placeholder {
+  color: var(--text-secondary);
+}
+
+/* =========================
+   EYE
+========================= */
+
+.machine-create-eye {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: 0.2s ease;
+}
+
+.machine-create-eye:hover {
+  color: var(--primary-color);
+}
+
+/* =========================
+   SELECT
+========================= */
+
+.machine-create-select {
+  justify-content: space-between;
+
+  cursor: pointer;
+
+  font-size: 13px;
+  font-weight: 500;
+
+  color: var(--text-primary);
+}
+
+.machine-create-dropdown {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.machine-create-dropdown option {
+  color: var(--text-primary);
+  background: var(--card-bg);
+}
+
+.machine-create-select-arrow {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* =========================
+   TAGS
+========================= */
+
+.machine-create-tags {
+  width: 100%;
+
+  height: 40px;
+
+  border: 1px solid var(--border-color);
+
+  border-radius: 12px;
+
+  padding: 0 12px;
+
+  font-size: 13px;
+
+  transition: 0.2s ease;
+}
+
+/* =========================
+   FOOTER
+========================= */
+
+.machine-create-footer {
+  margin-top: 14px;
+
+  display: flex;
+  justify-content: flex-end;
+
+  gap: 10px;
+}
+
+/* =========================
+   BUTTONS
+========================= */
+
+.machine-create-cancel {
+  height: 40px;
+
+  padding: 0 18px;
+
+  border-radius: 12px;
+
+  border: 1px solid var(--border-color);
+
+  background: var(--card-bg);
+
+  font-size: 13px;
+  font-weight: 600;
+
+  color: var(--text-secondary);
+}
+
+.machine-create-back {
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.machine-create-back:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: var(--focus-ring);
+}
+
+.machine-create-submit {
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 10px;
+  background: var(--gradient-primary);
+  color: var(--text-on-primary);
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: 0 2px 10px var(--shadow-md);
+}
+
+.machine-create-submit:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px var(--shadow-lg);
+}
+
+.machine-create-submit:active {
+  transform: translateY(0);
+}

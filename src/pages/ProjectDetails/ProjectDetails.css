@@ -1,0 +1,222 @@
+.project-details-page {
+  padding: 30px;
+}
+
+.project-summary-card {
+  background: var(--card-bg);
+  border-radius: var(--border-radius);
+  padding: 24px;
+  margin-bottom: 30px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 3px var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.project-summary-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--gradient-primary);
+  border-radius: 0 4px 4px 0;
+}
+
+.project-summary-card h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.project-summary-desc {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-bottom: 22px;
+  line-height: 1.5;
+}
+
+.project-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.project-stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.project-stat-item small {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.project-stat-item h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.project-stat-item .status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.project-stat-item .status-badge.healthy {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success-color);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.25);
+}
+
+.project-stat-item .status-badge.warning {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--warning-color);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.25);
+}
+
+.project-stat-item .status-badge.no-machines {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.section-header {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-header::before {
+  content: "";
+  width: 4px;
+  height: 20px;
+  border-radius: 4px;
+  background: var(--gradient-primary);
+  flex-shrink: 0;
+}
+
+.machines-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+.machine-card {
+  background: var(--card-bg);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 3px var(--shadow-sm);
+  overflow: hidden;
+  transition: var(--transition);
+}
+
+.machine-card:hover {
+  box-shadow: 0 8px 24px var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.machine-card-header {
+  padding: 16px 18px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--surface-3);
+}
+
+.machine-card-header h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.machine-card-body {
+  padding: 14px 18px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.machine-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.machine-info .label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.machine-info .value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.machine-card .status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.machine-card .status-badge.healthy {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success-color);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.25);
+}
+
+.machine-card .status-badge.warning {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--warning-color);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.25);
+}
+
+.machine-card .status-badge.critical {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--danger-color);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.25);
+}
+
+.machine-card .status-badge.offline {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.loading-container {
+  padding: 60px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 15px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

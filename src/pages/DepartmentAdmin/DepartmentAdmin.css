@@ -1,0 +1,1033 @@
+/* .department-admin-page {
+  padding: 28px;
+}
+
+.department-admin-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.department-admin-header::before {
+  content: "";
+  width: 4px;
+  height: 28px;
+  border-radius: 4px;
+  background: var(--accent-cyan);
+  flex-shrink: 0;
+}
+
+.department-admin-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.department-admin-header p {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.department-admin-table {
+  background: var(--card-bg);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  box-shadow: 0 1px 3px var(--shadow-sm);
+  border: 1px solid var(--border-color);
+}
+
+.table-heading {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1.5fr 2fr;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, var(--surface-2) 0%, var(--primary-lighter) 100%);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1.5fr 2fr;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--surface-3);
+  align-items: center;
+  font-size: 14px;
+  color: var(--text-primary);
+  transition: var(--transition);
+  position: relative;
+  padding-left: 23px;
+}
+
+.table-row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent-cyan);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.table-row:last-child {
+  border-bottom: none;
+}
+
+.table-row:hover {
+  background: var(--hover-bg);
+}
+
+.table-row:hover::before {
+  opacity: 0.6;
+}
+
+.table-row:nth-child(even) {
+  background: var(--primary-lighter);
+}
+
+.name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.name .name-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--gradient-primary);
+  color: #111827;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px var(--shadow-sm);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.actions button {
+  height: 36px;
+  width: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px var(--shadow-sm);
+}
+
+.view-btn {
+  background: #10B981;
+  border-color: #10B981;
+  color: #F6F8FB;
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.35);
+}
+
+.view-btn:hover {
+  background: #0EA371;
+  border-color: #0EA371;
+  color: #F6F8FB;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+  transform: translateY(-1px);
+}
+
+.view-btn:active {
+  transform: translateY(0);
+}
+
+.delete-btn {
+  background: var(--danger-color);
+  border-color: var(--danger-color);
+  color: #F6F8FB;
+  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3);
+}
+
+.delete-btn:hover {
+  background: #DC2626;
+  border-color: #DC2626;
+  color: #F6F8FB;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+  transform: translateY(-1px);
+}
+
+.loading {
+  padding: 40px;
+  text-align: center;
+  font-size: 15px;
+  color: var(--text-secondary);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+ */
+
+
+
+
+ /* code changes by Dhanshree 1 */
+ 
+/* =========================================================
+   DEPARTMENT ADMIN PAGE
+   ========================================================= */
+
+   .department-admin-page {
+    padding: 28px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+
+  
+  /* =========================================================
+     HEADER
+     ========================================================= */
+  
+  .department-admin-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  
+  .department-admin-header::before {
+    content: "";
+    width: 4px;
+    height: 28px;
+    border-radius: 4px;
+    background: var(--accent-cyan);
+    flex-shrink: 0;
+  }
+  
+  .department-admin-header h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+  }
+  
+  .department-admin-header p {
+    margin: 6px 0 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+  
+  
+  /* =========================================================
+     FILTER TABS
+     ========================================================= */
+
+  .user-filter-tabs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .user-filter-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 16px;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+
+  .user-filter-tab:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+  }
+
+  .user-filter-tab.active {
+    background: var(--gradient-primary);
+    border-color: transparent;
+    color: var(--text-on-primary);
+    box-shadow: 0 2px 10px var(--shadow-md);
+  }
+
+  .user-filter-tab .filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.12);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .user-filter-tab.active .filter-count {
+    background: rgba(0, 0, 0, 0.22);
+  }
+
+
+  /* =========================================================
+     TABLE CONTAINER
+     ========================================================= */
+  
+  .department-admin-table {
+    width: 100%;
+    max-width: 100%;
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: 0 1px 3px var(--shadow-sm);
+    border: 1px solid var(--border-color);
+    box-sizing: border-box;
+  }
+  
+  
+  /* =========================================================
+     TABLE HEADER
+     ========================================================= */
+  
+  .table-heading {
+    display: grid;
+  
+    /*
+      Name      Email      Department   Status   Approval   Action
+    */
+    grid-template-columns:
+      1.5fr
+      2.2fr
+      1.2fr
+      1fr
+      1.7fr
+      0.9fr;
+  
+    padding: 14px 20px;
+  
+    background: linear-gradient(
+      135deg,
+      var(--surface-2) 0%,
+      var(--primary-lighter) 100%
+    );
+  
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  
+    box-sizing: border-box;
+  }
+
+  .table-heading > div {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Center the headings that sit above centered data cells */
+  .table-heading > div:nth-child(4),
+  .table-heading > div:nth-child(5),
+  .table-heading > div:nth-child(6) {
+    justify-content: center;
+  }
+  
+  
+  /* =========================================================
+     TABLE ROW
+     ========================================================= */
+  
+  .table-row {
+    display: grid;
+  
+    grid-template-columns:
+      1.5fr
+      2.2fr
+      1.2fr
+      1fr
+      1.7fr
+      0.9fr;
+  
+    padding: 12px 20px;
+  
+    border-bottom: 1px solid var(--surface-3);
+  
+    align-items: center;
+  
+    font-size: 14px;
+    color: var(--text-primary);
+  
+    transition: var(--transition);
+  
+    position: relative;
+  
+    box-sizing: border-box;
+  
+    /*
+      Important:
+      Allows grid children to shrink instead of
+      pushing the Delete button outside.
+    */
+    min-width: 0;
+  }
+  
+  
+  /* =========================================================
+     LEFT ACCENT
+     ========================================================= */
+  
+  .table-row::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--accent-cyan);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  
+  .table-row:last-child {
+    border-bottom: none;
+  }
+  
+  .table-row:hover {
+    background: var(--hover-bg);
+  }
+  
+  .table-row:hover::before {
+    opacity: 0.6;
+  }
+  
+  .table-row:nth-child(even) {
+    background: var(--primary-lighter);
+  }
+  
+  
+  /* =========================================================
+     NAME
+     ========================================================= */
+  
+  .name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  
+    font-weight: 600;
+  
+    min-width: 0;
+  }
+  
+  .name > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .name .name-icon {
+    width: 32px;
+    height: 32px;
+  
+    border-radius: 8px;
+  
+    background: var(--gradient-primary);
+    color: #111827;
+  
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  
+    font-size: 14px;
+  
+    flex-shrink: 0;
+  
+    box-shadow: 0 2px 6px var(--shadow-sm);
+  }
+  
+  
+  /* =========================================================
+     EMAIL
+     ========================================================= */
+  
+  .table-row > div:nth-child(2) {
+    min-width: 0;
+  
+    padding-right: 20px;
+  
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  
+  /* =========================================================
+     DEPARTMENT
+     ========================================================= */
+  
+  .table-row > div:nth-child(3) {
+    min-width: 0;
+  
+    padding-right: 15px;
+  
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  
+  /* =========================================================
+     STATUS
+     ========================================================= */
+  
+  .table-row > div:nth-child(4) {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    min-width: 0;
+  }
+  
+  
+  /* =========================================================
+     STATUS BADGE
+     ========================================================= */
+  
+  .status-badge {
+    display: inline-flex;
+  
+    align-items: center;
+    justify-content: center;
+  
+    gap: 6px;
+  
+    min-width: 96px;
+  
+    height: 32px;
+  
+    padding: 0 14px;
+  
+    border-radius: 18px;
+  
+    font-size: 12px;
+  
+    font-weight: 700;
+  
+    line-height: 1;
+  
+    letter-spacing: 0.3px;
+  
+    white-space: nowrap;
+  
+    box-sizing: border-box;
+  }
+  
+  .status-badge .anticon {
+    display: inline-flex;
+
+    font-size: 13px;
+
+    flex-shrink: 0;
+  }
+  
+  
+  /* PENDING */
+  
+  .status-pending {
+    background: #fff8d9;
+    color: #b77900;
+    border: 1px solid #f2cf2f;
+  }
+  
+  
+  /* APPROVED / ACTIVE */
+  
+  .status-active,
+  .status-approved {
+    background: #e8f8ee;
+    color: #159447;
+    border: 1px solid #27b865;
+  }
+  
+  
+  /* REJECTED */
+  
+  .status-rejected {
+    background: #ffe9e9;
+    color: #d93030;
+    border: 1px solid #f15b5b;
+  }
+  
+  
+  /* =========================================================
+     ACTION - VIEW / DELETE (icons)
+     ========================================================= */
+  
+  .actions {
+    display: flex;
+  
+    align-items: center;
+  
+    justify-content: center;
+  
+    flex-wrap: nowrap;
+  
+    gap: 8px;
+  
+    min-width: 0;
+  
+    width: 100%;
+  }
+  
+  
+/* =========================================================
+     APPROVAL - APPROVE / REJECT
+     ========================================================= */
+
+  .approval-actions {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    flex-wrap: nowrap;
+
+    gap: 8px;
+
+    min-width: 0;
+  }
+
+  .approval-actions .approval-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-size: 15px;
+  }
+
+  .approval-actions .approval-indicator .approval-indicator-check {
+    color: var(--success-color);
+  }
+
+  .approval-actions .approval-indicator .approval-indicator-close {
+    color: var(--danger-color);
+  }
+  
+  
+  /* =========================================================
+     ALL ACTION BUTTONS (shared base)
+     ========================================================= */
+  
+  .action-btn {
+    height: 34px;
+  
+    padding: 0 10px;
+  
+    display: inline-flex;
+  
+    align-items: center;
+    justify-content: center;
+  
+    gap: 5px;
+  
+    border: none;
+  
+    border-radius: 8px;
+  
+    cursor: pointer;
+  
+    font-size: 12px;
+  
+    font-weight: 600;
+  
+    font-family: inherit;
+  
+    color: #ffffff;
+  
+    transition: all 0.2s ease;
+  
+    white-space: nowrap;
+  
+    flex-shrink: 0;
+  
+    box-sizing: border-box;
+  }
+  
+  .action-btn:hover {
+    transform: translateY(-1px);
+  }
+  
+  .action-btn:active {
+    transform: translateY(0);
+  }
+  
+  .action-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+  
+  
+  /* =========================================================
+     ICON-ONLY BUTTONS (View / Delete)
+     ========================================================= */
+  
+  .icon-btn {
+    width: 34px;
+    padding: 0;
+    font-size: 15px;
+  }
+  
+  
+  /* =========================================================
+     VIEW BUTTON
+     ========================================================= */
+  
+  .view-btn {
+    background: #10B981;
+    border-color: #10B981;
+    color: #F6F8FB;
+    box-shadow: 0 2px 10px rgba(16, 185, 129, 0.35);
+  }
+
+  .view-btn:hover {
+    background: #0EA371;
+    border-color: #0EA371;
+    color: #F6F8FB;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+  }
+  
+  
+  /* =========================================================
+     APPROVE BUTTON
+     ========================================================= */
+  
+  .approve-approval-btn {
+    background: #16b85a;
+  
+    color: #ffffff;
+  
+    min-width: 78px;
+  
+    box-shadow: 0 2px 7px rgba(22, 184, 90, 0.25);
+  }
+  
+  .approve-approval-btn:hover {
+    background: #0fa84e;
+  
+    box-shadow: 0 4px 12px rgba(22, 184, 90, 0.35);
+  }
+  
+  
+  /* =========================================================
+     REJECT BUTTON
+     ========================================================= */
+  
+  .reject-approval-btn {
+    background: #ef4444;
+  
+    color: #ffffff;
+  
+    min-width: 70px;
+  
+    box-shadow: 0 2px 7px rgba(239, 68, 68, 0.25);
+  }
+  
+  .reject-approval-btn:hover {
+    background: #dc3030;
+  
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+  }
+  
+  
+  /* =========================================================
+     DELETE BUTTON
+     ========================================================= */
+  
+  .delete-btn {
+    background: var(--danger-color);
+
+    color: #F6F8FB;
+
+    border: 1px solid var(--danger-color);
+
+    box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3);
+  }
+
+  .delete-btn:hover {
+    background: #DC2626;
+
+    border-color: #DC2626;
+
+    color: #F6F8FB;
+
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+  }
+  
+  
+  /* =========================================================
+     LOADING
+     ========================================================= */
+  
+  .loading {
+    padding: 40px;
+  
+    text-align: center;
+  
+    font-size: 15px;
+  
+    color: var(--text-secondary);
+  
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  
+  
+  /* =========================================================
+     ANIMATION
+     ========================================================= */
+  
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+  
+    50% {
+      opacity: 0.5;
+    }
+  }
+  
+  
+  /* =========================================================
+     RESPONSIVE - MEDIUM SCREEN
+     ========================================================= */
+  
+  @media (max-width: 1200px) {
+    .department-admin-page {
+      padding: 20px;
+    }
+  
+    .table-heading,
+    .table-row {
+      grid-template-columns:
+        1.4fr
+        2.2fr
+        1.2fr
+        1fr
+        1.7fr
+        0.9fr;
+    }
+  
+    .table-heading {
+      padding: 12px 16px;
+    }
+  
+    .table-row {
+      padding: 12px 16px;
+    }
+  
+    .actions,
+    .approval-actions {
+      gap: 5px;
+    }
+  
+    .action-btn {
+      padding: 0 8px;
+      font-size: 11px;
+    }
+  
+    .icon-btn {
+      width: 32px;
+    }
+  
+    .approve-approval-btn {
+      min-width: 72px;
+    }
+  
+    .reject-approval-btn {
+      min-width: 65px;
+    }
+  }
+  
+  
+  /* =========================================================
+     SMALL SCREEN
+     ========================================================= */
+  
+  @media (max-width: 900px) {
+    .department-admin-page {
+      padding: 16px;
+    }
+  
+    .table-heading,
+    .table-row {
+      grid-template-columns:
+        1.3fr
+        2fr
+        1.1fr
+        1fr
+        1.7fr
+        0.9fr;
+    }
+  
+    .actions,
+    .approval-actions {
+      gap: 4px;
+    }
+  
+    .action-btn {
+      height: 32px;
+      padding: 0 6px;
+      font-size: 10px;
+    }
+  
+    .icon-btn {
+      width: 32px;
+    }
+  
+    .status-badge {
+      min-width: 86px;
+      padding: 0 10px;
+      font-size: 11px;
+    }
+  }
+
+
+  /* =========================================================
+     VIEW MODAL
+     ========================================================= */
+
+  .admin-view-modal .ant-modal-content {
+    overflow: hidden;
+  }
+
+  .admin-view-card {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .admin-view-card h2 {
+    margin: 0;
+    padding: 22px 24px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .admin-view-card h2::before {
+    content: "";
+    width: 4px;
+    height: 20px;
+    border-radius: 4px;
+    background: var(--gradient-primary);
+    flex-shrink: 0;
+  }
+
+  .admin-view-card .detail-body {
+    padding: 8px 0;
+  }
+
+  .admin-view-card .detail-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--surface-3);
+  }
+
+  .admin-view-card .detail-row:last-child {
+    border-bottom: none;
+  }
+
+  .admin-view-card .detail-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--primary-light);
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .admin-view-card .detail-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .admin-view-card .detail-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 3px;
+  }
+
+  .admin-view-card .detail-value {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    word-break: break-word;
+  }
+
+  .admin-view-card .viewer-role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    background: var(--primary-light);
+    color: var(--primary-color);
+  }

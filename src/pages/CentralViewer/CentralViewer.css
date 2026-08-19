@@ -1,0 +1,78 @@
+.central-viewer-page {
+  padding: 30px;
+  background: var(--background-color);
+  min-height: 100vh;
+}
+
+.central-viewer-header {
+  margin-bottom: 25px;
+}
+
+.central-viewer-header h2 {
+  font-size: 30px;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.central-viewer-header p {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.central-viewer-table {
+  background: var(--card-bg);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  box-shadow: 0 1px 3px var(--shadow-sm);
+  border: 1px solid var(--border-color);
+}
+
+.central-viewer-table .table-heading {
+  display: grid;
+  grid-template-columns: 1.5fr 2fr 3fr;
+  padding: 16px 18px;
+  background: var(--surface-2);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.central-viewer-table .table-row {
+  display: grid;
+  grid-template-columns: 1.5fr 2fr 3fr;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-color);
+  align-items: center;
+  font-size: 14px;
+  color: var(--text-primary);
+  transition: var(--transition);
+}
+
+.central-viewer-table .table-row:last-child {
+  border-bottom: none;
+}
+
+.central-viewer-table .table-row:hover {
+  background: var(--hover-bg);
+}
+
+.department-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.department-name svg {
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+.central-viewer-table .loading {
+  padding: 40px;
+  text-align: center;
+  font-size: 15px;
+  color: var(--text-muted);
+}

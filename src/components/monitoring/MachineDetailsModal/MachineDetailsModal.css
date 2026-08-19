@@ -1,0 +1,207 @@
+/* =========================
+   OVERLAY
+========================= */
+
+.machine-detail-overlay {
+  position: fixed;
+  inset: 0;
+
+  background: var(--overlay-bg);
+
+  backdrop-filter: blur(4px);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  z-index: 999;
+}
+
+/* =========================
+   MODAL
+========================= */
+
+.machine-detail-modal {
+  width: 640px;
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 40px);
+
+  box-sizing: border-box;
+
+  display: flex;
+  flex-direction: column;
+
+  overflow: hidden;
+
+  background: var(--card-bg);
+
+  border-radius: 20px;
+
+  padding: 16px;
+
+  box-shadow:
+    0 20px 60px var(--shadow-lg);
+
+  animation:
+    machineDetailFade 0.25s ease;
+}
+
+@keyframes machineDetailFade {
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(10px)
+      scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0)
+      scale(1);
+  }
+}
+
+/* =========================
+   HEADER
+========================= */
+
+.machine-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.machine-detail-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+
+  color: var(--text-primary);
+}
+
+.machine-detail-header p {
+  margin-top: 2px;
+
+  font-size: 13px;
+
+  color: var(--text-secondary);
+}
+
+.machine-detail-close {
+  width: 34px;
+  height: 34px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+
+  border-radius: 10px;
+
+  background: var(--surface-2);
+
+  color: var(--text-secondary);
+
+  cursor: pointer;
+
+  font-size: 14px;
+
+  transition: 0.2s ease;
+}
+
+.machine-detail-close:hover {
+  background: var(--danger-color);
+
+  color: #f6f8fb;
+}
+
+/* =========================
+   BODY
+========================= */
+
+.machine-detail-body {
+  margin-top: 16px;
+
+  flex: 1;
+  min-height: 0;
+
+  overflow-y: auto;
+}
+
+.machine-detail-loading {
+  padding: 48px 0;
+
+  text-align: center;
+
+  font-size: 14px;
+
+  color: var(--text-secondary);
+}
+
+.machine-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.machine-detail-grid--tags {
+  margin-top: 12px;
+}
+
+.machine-detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  padding: 10px 12px;
+
+  border: 1px solid var(--border-color);
+
+  border-radius: 12px;
+
+  background: var(--surface-2);
+}
+
+.machine-detail-full {
+  grid-column: 1 / -1;
+}
+
+.machine-detail-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+
+  color: var(--text-secondary);
+}
+
+.machine-detail-value {
+  font-size: 14px;
+  font-weight: 600;
+  word-break: break-word;
+
+  color: var(--text-primary);
+}
+
+.machine-detail-status {
+  display: inline-flex;
+  align-items: center;
+
+  padding: 3px 10px;
+
+  border-radius: 999px;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+}
+
+.machine-detail-status.healthy {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}

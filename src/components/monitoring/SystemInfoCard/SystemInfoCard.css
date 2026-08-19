@@ -1,0 +1,180 @@
+.system-info-card {
+  margin-top: 26px;
+
+  background: var(--card-bg);
+
+  border: 1px solid var(--border-color);
+
+  border-radius: 20px;
+
+  padding: 20px 22px;
+}
+
+/* =========================
+   HEADER
+========================= */
+
+.system-info-header {
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+
+  margin-bottom: 18px;
+}
+
+.system-pulse {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--primary-light);
+  color: var(--primary-color);
+  font-size: 15px;
+  display: grid;
+  place-items: center;
+}
+
+.system-info-header h3 {
+  font-size: 15px;
+  font-weight: 700;
+
+  color: var(--text-primary);
+}
+
+/* =========================
+   GRID
+========================= */
+
+.system-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, 1fr);
+
+  border-top: 1px solid var(--border-color);
+}
+
+.system-item {
+  height: 58px;
+
+  border-bottom: 1px solid var(--border-color);
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+
+  padding: 0 10px;
+
+  transition: background 0.15s ease;
+}
+
+.system-item:hover {
+  background: var(--primary-lighter);
+}
+
+/* =========================
+   LABELS
+========================= */
+
+.system-label {
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+
+  font-size: 13px;
+  font-weight: 500;
+
+  color: var(--text-secondary);
+}
+
+.system-icon {
+  font-size: 17px;
+
+  color: var(--text-secondary);
+
+  display: flex;
+  align-items: center;
+}
+
+.system-item strong {
+  font-size: 13px;
+  font-weight: 600;
+
+  color: var(--text-primary);
+}
+
+/* =========================
+   LIVE STATUS
+========================= */
+
+.live-status {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+
+  border-radius: 50%;
+
+  background: var(--success-color);
+}
+
+/* =========================
+   STATUS PILL
+========================= */
+
+.status-pill {
+  height: 28px;
+
+  padding: 0 12px;
+
+  border-radius: 999px;
+
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success-color);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+[data-theme="dark"] .status-pill {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--success-color);
+}
+
+/* =========================
+   FOOTER
+========================= */
+
+.system-footer {
+  margin-top: 14px;
+
+  text-align: center;
+
+  font-size: 12px;
+
+  color: var(--text-secondary);
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media screen and (max-width: 1100px) {
+
+  .system-grid {
+    grid-template-columns: 1fr;
+  }
+
+}

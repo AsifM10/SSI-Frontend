@@ -1,0 +1,520 @@
+.central-panels-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.central-panel {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(17, 24, 39, 0.05);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.central-panel:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(17, 24, 39, 0.08);
+}
+
+/* ---- Panel header ---- */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.panel-header-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--primary-light);
+  color: var(--primary-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.panel-icon-bolt {
+  background: #EFF6FF;
+  color: #3B82F6;
+}
+
+.panel-icon-leaf {
+  background: #ECFDF5;
+  color: #10B981;
+}
+
+.panel-header h3 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.panel-menu-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.panel-menu-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+/* ---- Shared halo gauge ---- */
+.panel-halo {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.panel-halo-arc {
+  transition: stroke-dasharray 1.2s ease;
+}
+
+/* ============================
+   Panel 1 — Infrastructure
+============================ */
+.infra-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.infra-gauge {
+  position: relative;
+  width: 96px;
+  height: 96px;
+}
+
+.infra-gauge-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+.infra-gauge-center strong {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1;
+}
+
+.infra-gauge-center span {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6B7280;
+}
+
+.infra-desc {
+  font-size: 11px;
+  line-height: 1.5;
+  color: #6B7280;
+  text-align: center;
+  margin: 0;
+}
+
+.infra-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #F3F4F6;
+}
+
+.infra-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  min-width: 0;
+}
+
+.infra-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.infra-dot-green { background: #ECFDF5; color: #10B981; }
+.infra-dot-yellow { background: #FFFBEB; color: #F59E0B; }
+.infra-dot-red { background: #FEF2F2; color: #EF4444; }
+.infra-dot-blue { background: #EFF6FF; color: #3B82F6; }
+
+.infra-check {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.infra-warn {
+  font-size: 16px;
+}
+
+.infra-crit {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.infra-clock {
+  font-size: 16px;
+}
+
+.infra-stat strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.infra-stat span {
+  font-size: 9px;
+  color: #6B7280;
+  line-height: 1.3;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.infra-stat div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+/* ============================
+   Panel 2 — Power
+============================ */
+.power-gauge-wrap {
+  position: relative;
+  width: 100%;
+  height: 145px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.power-gauge {
+  width: 100%;
+  max-width: 220px;
+  height: 140px;
+  overflow: visible;
+}
+
+.power-gauge-arc {
+  stroke-dasharray: 2 7;
+  transition: stroke-dasharray 1.2s ease;
+}
+
+.power-gauge-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+.power-bolt {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #EFF6FF;
+  color: #3B82F6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1px;
+}
+
+.power-gauge-center strong {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1;
+}
+
+.power-gauge-center strong small {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6B7280;
+}
+
+.power-gauge-center > span:not(.power-badge):not(.power-bolt) {
+  font-size: 10px;
+  color: #6B7280;
+}
+
+.power-badge {
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #ECFDF5;
+  color: #10B981;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.power-substats,
+.carbon-substats {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #F9FAFB;
+  border-radius: 10px;
+}
+
+.power-substat,
+.carbon-substat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+  min-width: 0;
+  flex: 1;
+}
+
+.power-substat strong,
+.carbon-substat strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+  white-space: nowrap;
+}
+
+.power-substat span,
+.carbon-substat span {
+  font-size: 9px;
+  color: #6B7280;
+  white-space: nowrap;
+}
+
+/* ---- Insight banner ---- */
+.panel-insight {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+
+.panel-insight-blue {
+  background: #EFF6FF;
+}
+
+.panel-insight-green {
+  background: #ECFDF5;
+}
+
+.panel-insight-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: var(--card-bg);
+  color: #3B82F6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.panel-insight-green .panel-insight-icon {
+  color: #10B981;
+}
+
+.panel-insight strong {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.panel-insight p {
+  margin: 2px 0 0;
+  font-size: 10px;
+  line-height: 1.45;
+  color: #6B7280;
+}
+
+/* ============================
+   Panel 3 — Carbon
+============================ */
+.carbon-gauge-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.carbon-gauge-holder {
+  position: relative;
+  width: 108px;
+  height: 108px;
+}
+
+.carbon-gauge-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+.carbon-leaf {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #ECFDF5;
+  color: #10B981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1px;
+}
+
+.carbon-gauge-center strong {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1;
+}
+
+.carbon-gauge-center strong small {
+  font-size: 10px;
+  font-weight: 600;
+  color: #6B7280;
+}
+
+.carbon-gauge-center > span:not(.carbon-score) {
+  font-size: 10px;
+  color: #6B7280;
+}
+
+.carbon-score {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #ECFDF5;
+  color: #10B981;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.carbon-score-letter {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #10B981;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+/* ---- Dark mode ---- */
+[data-theme="dark"] .central-panel {
+  background: var(--card-bg);
+  border-color: var(--border-color);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .central-panel:hover {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .infra-gauge-center strong,
+[data-theme="dark"] .power-gauge-center strong,
+[data-theme="dark"] .carbon-gauge-center strong,
+[data-theme="dark"] .infra-stat strong,
+[data-theme="dark"] .power-substat strong,
+[data-theme="dark"] .carbon-substat strong,
+[data-theme="dark"] .panel-insight strong {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .infra-desc,
+[data-theme="dark"] .power-gauge-center > span,
+[data-theme="dark"] .carbon-gauge-center > span,
+[data-theme="dark"] .infra-stat span,
+[data-theme="dark"] .power-substat span,
+[data-theme="dark"] .carbon-substat span,
+[data-theme="dark"] .panel-insight p {
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .infra-stats {
+  border-top-color: var(--border-color);
+}
+
+[data-theme="dark"] .power-substats,
+[data-theme="dark"] .carbon-substats {
+  background: var(--surface-2);
+}
+
+[data-theme="dark"] .panel-insight-blue {
+  background: rgba(59, 130, 246, 0.14);
+}
+
+[data-theme="dark"] .panel-insight-green {
+  background: rgba(16, 185, 129, 0.14);
+}
+
+/* ---- Responsive ---- */
+@media screen and (max-width: 1200px) {
+  .central-panels-grid {
+    grid-template-columns: 1fr;
+  }
+}
