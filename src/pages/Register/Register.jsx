@@ -113,7 +113,7 @@ function Register() {
         <div className="welcome-text">
           <span>Welcome to</span>
 
-          <h1>Monitoring Dashboard</h1>
+          <h1>Sarvekshan</h1>
 
           <div className="line"></div>
 

@@ -5,7 +5,6 @@ import {
   BarChartOutlined,
   FileTextOutlined,
   UserOutlined,
-  DesktopOutlined,
 } from "@ant-design/icons";
 
 import { NavLink } from "react-router-dom";
@@ -13,6 +12,7 @@ import { useSelector } from "react-redux";
 import { useState, useEffect } from "react";
 import { selectUser } from "../../store/slices/authSlice";
 import { getProjectsForUser } from "../../services/projectService";
+import SarvekshanEye from "../../assets/sarvekshan_eye.png";
 
 import "./Sidebar.css";
 
@@ -72,13 +72,13 @@ const Sidebar = ({ collapsed }) => {
       <div className="sidebar-top">
         <div className="sidebar-logo">
           <div className="logo-icon">
-            <DesktopOutlined />
+            <img src={SarvekshanEye} alt="Sarvekshan" />
           </div>
 
           {!collapsed && (
             <div>
-              <h2>MONITORING</h2>
-              <p>DASHBOARD</p>
+              <h2>SARVEKSHAN</h2>
+              <p>MONITORING</p>
             </div>
           )}
         </div>

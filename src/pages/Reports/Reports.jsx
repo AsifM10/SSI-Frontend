@@ -90,7 +90,7 @@ const MetricLineChart = ({ dataPoints, color, unit }) => {
 
   return (
     <div className="metric-chart-section">
-      <ResponsiveContainer width="100%" height={Math.max(200, dataPoints.length * 32 + 40)}>
+      <ResponsiveContainer width="100%" height={Math.max(200, Math.min(dataPoints.length * 24 + 40, 380))}>
         <AreaChart data={chartData} margin={{ top: 8, right: 8, left: 20, bottom: 4 }}>
           <defs>
             <linearGradient id={`grad-${color.replace(/\W/g, "")}`} x1="0" y1="0" x2="0" y2="1">
@@ -416,6 +416,10 @@ const Reports = () => {
 
   const filteredMachines = projectSelected ? machines : [];
 
+  const selectedDept = departments.find((d) => (d.deptId || d.id) === selectedDeptId);
+  const selectedProject = projects.find((p) => (p.projectId || p.id) === selectedProjectId);
+  const selectedMachine = machines.find((m) => (m.machineId || m.id) === selectedMachineId);
+
   const handleDownloadPdf = async () => {
     if (!reportData) return;
     setDownloadingPdf(true);
@@ -425,6 +429,24 @@ const Reports = () => {
       const scopeLabel = scopeLabels[scope] || "";
       const generatedDate = generatedAt ? new Date(generatedAt).toLocaleString() : new Date().toLocaleString();
       const filename = `${scopeName || scopeLabel}-report-${period}-${new Date().toISOString().split("T")[0]}.pdf`;
+
+      const subtitle = (() => {
+        const dept = selectedDept?.deptName || selectedDept?.name || selectedDeptName || "—";
+        if (scope === "project") {
+          const project = selectedProject?.projectName || selectedProject?.name || scopeName || "—";
+          return `${dept} › ${project}`;
+        }
+        if (scope === "machine") {
+          const project = selectedProject?.projectName || selectedProject?.name || "—";
+          const machine = selectedMachine
+            ? selectedMachine.hostname
+              ? `${selectedMachine.hostname} (${selectedMachine.ipAddress})`
+              : selectedMachine.machineName || selectedMachine.name || scopeName || "—"
+            : scopeName || "—";
+          return `${dept} › ${project} › ${machine}`;
+        }
+        return scopeName || `${scopeLabel} Report`;
+      })();
 
       const doc = new jsPDF("p", "mm", "a4");
       const pw = doc.internal.pageSize.getWidth();
@@ -466,7 +488,7 @@ const Reports = () => {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(fontSize.subtitle);
       doc.setTextColor(...color.textMuted);
-      doc.text(scopeName || `${scopeLabel} Report`, m, y);
+      doc.text(subtitle, m, y);
       y += 7;
       doc.setFontSize(fontSize.small);
       doc.text(`Generated ${generatedDate}`, m, y);
@@ -479,24 +501,54 @@ const Reports = () => {
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
-      const metaItems = [
-        { label: "Scope", value: scopeLabel },
-        { label: "Period", value: typeof period === "string" ? period.charAt(0).toUpperCase() + period.slice(1) : period },
-        { label: "Machines", value: String(machineCount) },
-      ];
-      const metaColW = cw / metaItems.length;
-      metaItems.forEach((item, i) => {
-        const x = m + i * metaColW;
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.setTextColor(...color.textMuted);
-        doc.text(item.label.toUpperCase(), x, y);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(12);
-        doc.setTextColor(...color.text);
-        doc.text(String(item.value), x, y + 6);
+      const metaItems = [];
+      if (scope === "department") {
+        metaItems.push({ label: "Department", value: scopeName || "—" });
+      } else if (scope === "project" || scope === "machine") {
+        metaItems.push({ label: "Department", value: selectedDept?.deptName || selectedDept?.name || selectedDeptName || "—" });
+      }
+      if (scope === "project") {
+        metaItems.push({ label: "Project", value: scopeName || "—" });
+      } else if (scope === "machine") {
+        metaItems.push({ label: "Project", value: selectedProject?.projectName || selectedProject?.name || "—" });
+        metaItems.push({
+          label: "Machine",
+          value: selectedMachine
+            ? selectedMachine.hostname
+              ? `${selectedMachine.hostname} (${selectedMachine.ipAddress})`
+              : selectedMachine.machineName || selectedMachine.name || scopeName || "—"
+            : scopeName || "—",
+        });
+      }
+      metaItems.push({ label: "Scope", value: scopeLabel });
+      metaItems.push({
+        label: "Period",
+        value: typeof period === "string" ? period.charAt(0).toUpperCase() + period.slice(1) : period,
       });
-      y += 18;
+      metaItems.push({ label: "Total Machines", value: String(machineCount) });
+
+      autoTable(doc, {
+        startY: y,
+        margin: { left: m, right: m },
+        tableWidth: cw,
+        theme: "plain",
+        tableLineWidth: 0,
+        body: metaItems.map((item) => [
+          {
+            content: item.label.toUpperCase(),
+            styles: { fontStyle: "bold", fontSize: 8, textColor: color.textMuted, cellPadding: 2 },
+          },
+          {
+            content: String(item.value),
+            styles: { fontSize: 11, textColor: color.text, cellPadding: 2 },
+          },
+        ]),
+        columnStyles: {
+          0: { cellWidth: 42 },
+          1: { cellWidth: cw - 42 },
+        },
+      });
+      y = doc.lastAutoTable.finalY + 10;
 
       doc.setDrawColor(...color.border);
       doc.setLineWidth(0.4);
@@ -505,9 +557,6 @@ const Reports = () => {
 
       let chartIdx = 0;
       for (const metric of metrics) {
-        if (!metric.data) continue;
-        const { unit, summary, dataPoints } = metric.data;
-
         checkPage(60);
 
         doc.setFillColor(...metric.accent);
@@ -517,6 +566,17 @@ const Reports = () => {
         doc.setTextColor(...color.text);
         const titleW = doc.getTextWidth(metric.key);
         doc.text(metric.key, m + 11, y + 10);
+
+        if (!metric.data) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(fontSize.small);
+          doc.setTextColor(...color.textMuted);
+          doc.text("No data available for this metric.", m + 4, y + 22);
+          y += 26;
+          continue;
+        }
+
+        const { unit, summary, dataPoints } = metric.data;
         if (unit) {
           doc.setFont("helvetica", "normal");
           doc.setFontSize(fontSize.metricUnit);
@@ -631,6 +691,39 @@ const Reports = () => {
 
   const selectedReportType = !!reportType;
 
+  const reportHeaderItems = reportData
+    ? (() => {
+        const items = [];
+        const scope = reportData.scope;
+        const deptName = selectedDept?.deptName || selectedDept?.name || selectedDeptName;
+        if (scope === "department") {
+          items.push({ label: "Department", value: deptName || reportData.scopeName || "—" });
+        } else if (scope === "project" || scope === "machine") {
+          items.push({ label: "Department", value: deptName || "—" });
+        }
+        if (scope === "project") {
+          items.push({ label: "Project", value: selectedProject?.projectName || selectedProject?.name || reportData.scopeName || "—" });
+        } else if (scope === "machine") {
+          items.push({ label: "Project", value: selectedProject?.projectName || selectedProject?.name || "—" });
+          items.push({
+            label: "Machine",
+            value: selectedMachine
+              ? selectedMachine.hostname
+                ? `${selectedMachine.hostname} (${selectedMachine.ipAddress})`
+                : selectedMachine.machineName || selectedMachine.name || reportData.scopeName || "—"
+              : reportData.scopeName || "—",
+          });
+        }
+        items.push({
+          label: "Scope",
+          value: (<><span className="kv-scope-icon">{scopeIcons[scope]}</span>{titleCase(scope)}</>),
+        });
+        items.push({ label: "Period", value: titleCase(reportData.period) });
+        items.push({ label: "Total Machines", value: reportData.machineCount });
+        return items;
+      })()
+    : [];
+
   return (
     <MainLayout
       title="Reports"
@@ -737,7 +830,7 @@ const Reports = () => {
                   <label>Department</label>
                   <Select value={user.deptId} className="form-select" disabled>
                     <Select.Option value={user.deptId}>
-                      {selectedDeptName || `Department #${user.deptId}`}
+                      {selectedDeptName || "Your Department"}
                     </Select.Option>
                   </Select>
                 </div>
@@ -748,7 +841,7 @@ const Reports = () => {
                   <label>Department</label>
                   <Select value={user.deptId} className="form-select" disabled>
                     <Select.Option value={user.deptId}>
-                      {selectedDeptName || `Department #${user.deptId}`}
+                      {selectedDeptName || "Your Department"}
                     </Select.Option>
                   </Select>
                 </div>
@@ -828,7 +921,7 @@ const Reports = () => {
                   >
                     {filteredMachines.map((m) => (
                       <Select.Option key={m.machineId || m.id} value={m.machineId || m.id}>
-                        {m.hostname ? `${m.hostname} (${m.ipAddress})` : m.machineName || m.name || `Machine #${m.machineId || m.id}`}
+                        {m.hostname ? `${m.hostname} (${m.ipAddress})` : m.machineName || m.name || "Machine"}
                       </Select.Option>
                     ))}
                   </Select>
@@ -940,28 +1033,13 @@ const Reports = () => {
                 </div>
               </div>
               <div className="summary-kv-row">
-                {reportData.scopeId && (
-                  <div className="kv-item">
-                    <span className="kv-label">{titleCase(reportData.scope)} ID</span>
+                {reportHeaderItems.map((item) => (
+                  <div className="kv-item" key={item.label}>
+                    <span className="kv-label">{item.label}</span>
                     <span className="kv-sep">-</span>
-                    <span className="kv-value kv-value-id">{reportData.scopeId}</span>
+                    <span className="kv-value">{item.value}</span>
                   </div>
-                )}
-                <div className="kv-item">
-                  <span className="kv-label">Scope</span>
-                  <span className="kv-sep">-</span>
-                  <span className="kv-value">{scopeIcons[reportData.scope]} {titleCase(reportData.scope)}</span>
-                </div>
-                <div className="kv-item">
-                  <span className="kv-label">Period</span>
-                  <span className="kv-sep">-</span>
-                  <span className="kv-value">{titleCase(reportData.period)}</span>
-                </div>
-                <div className="kv-item">
-                  <span className="kv-label">Machines</span>
-                  <span className="kv-sep">-</span>
-                  <span className="kv-value">{reportData.machineCount}</span>
-                </div>
+                ))}
               </div>
             </div>
             <div className="report-metrics-grid">

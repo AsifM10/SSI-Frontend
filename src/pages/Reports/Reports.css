@@ -542,11 +542,6 @@
   color: var(--text-muted);
 }
 
-.kv-value-id {
-  color: var(--primary-color);
-  font-weight: 700;
-}
-
 .kv-sep {
   display: none;
 }
@@ -563,12 +558,6 @@
 .kv-value svg {
   font-size: 13px;
   color: var(--text-muted);
-}
-
-.kv-value-id {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--primary-color);
 }
 
 .kv-sep {
@@ -995,7 +984,6 @@
 
   .kv-label { color: #666; }
   .kv-value { color: #000; }
-  .kv-value-id { color: #4F46E5; }
   .kv-sep { color: #999; }
 
   .report-summary-header h2 { color: black; }

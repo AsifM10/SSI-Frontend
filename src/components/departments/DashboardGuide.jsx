@@ -79,7 +79,7 @@ const metricSlides = [
     gradient: "linear-gradient(135deg, #38A169, #68D391)",
     description:
       "Translate energy consumption into CO₂ emissions. Track daily and monthly emissions against targets and earn an eco score for your department.",
-    points: ["CO₂ today", "kg emitted / month", "Eco score rating", "Sustainability targets"],
+    points: ["CO₂ today", "kg emitted / month", "Eco score rating",],
   },
 ];
 
@@ -186,8 +186,8 @@ const roleData = {
       "You manage your department — create projects and machines, register viewers and monitor every resource in real time, with reports scoped to your department.",
     accessShort: "Admin",
     accessSpan: "Dept Access",
-    ctaTitle: "Ready to see your department live?",
-    ctaText: "Jump into your department and open any project to start monitoring.",
+    ctaTitle: "Ready to see your projects live?",
+    ctaText: "Jump into your projects and open any machine to start monitoring.",
     ctaButton: "Open Projects",
     features: [
       {
@@ -234,8 +234,8 @@ const roleData = {
       "View-only access — no changes to machines or users. You get a live view of your department's infrastructure — open any project's monitoring dashboards for your department, read-only.",
     accessShort: "View",
     accessSpan: "Dept Only",
-    ctaTitle: "Ready to see your department live?",
-    ctaText: "Jump into your department and open any project to start monitoring.",
+    ctaTitle: "Ready to see your projects live?",
+    ctaText: "Jump into your projects and open any machine to start monitoring.",
     ctaButton: "Open Projects",
     features: [
       {
@@ -437,6 +437,9 @@ const DashboardGuide = () => {
                     <span className="guide-slide-tag" style={{ background: slide.gradient }}>{slide.tag}</span>
                     <h3>{slide.title}</h3>
                     <p>{slide.description}</p>
+                    <div className="guide-slide-insight-label">
+  What you can find here
+</div>
                     <div className="guide-slide-points">
                       {slide.points.map((pt) => (
                         <span key={pt}><CheckCircleFilled /> {pt}</span>

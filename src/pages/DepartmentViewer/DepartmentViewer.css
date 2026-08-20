@@ -153,33 +153,33 @@
   box-shadow: 0 1px 2px var(--shadow-sm);
 }
 
-.view-btn {
-  background: #F5A623;
-  border-color: #F5A623;
-  color: #111827;
-  box-shadow: 0 2px 10px rgba(245, 166, 35, 0.35);
+.viewer-actions .view-btn {
+  background: #10B981;
+  border-color: #10B981;
+  color: #F6F8FB;
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.35);
 }
 
-.view-btn:hover {
-  background: #D98F1B;
-  border-color: #D98F1B;
-  color: #111827;
-  box-shadow: 0 4px 14px rgba(245, 166, 35, 0.4);
+.viewer-actions .view-btn:hover {
+  background: #0EA371;
+  border-color: #0EA371;
+  color: #F6F8FB;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
   transform: translateY(-1px);
 }
 
-.view-btn:active {
+.viewer-actions .view-btn:active {
   transform: translateY(0);
 }
 
-.edit-btn {
+.viewer-actions .edit-btn {
   background: #3B82F6;
   border-color: #3B82F6;
   color: #F6F8FB;
   box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3);
 }
 
-.edit-btn:hover {
+.viewer-actions .edit-btn:hover {
   background: #2563EB;
   border-color: #2563EB;
   color: #F6F8FB;
@@ -187,18 +187,18 @@
   transform: translateY(-1px);
 }
 
-.edit-btn:active {
+.viewer-actions .edit-btn:active {
   transform: translateY(0);
 }
 
-.delete-btn {
+.viewer-actions .delete-btn {
   background: var(--danger-color);
   border-color: var(--danger-color);
   color: #F6F8FB;
   box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3);
 }
 
-.delete-btn:hover {
+.viewer-actions .delete-btn:hover {
   background: #DC2626;
   border-color: #DC2626;
   color: #F6F8FB;
@@ -206,7 +206,7 @@
   transform: translateY(-1px);
 }
 
-.delete-btn:active {
+.viewer-actions .delete-btn:active {
   transform: translateY(0);
 }
 

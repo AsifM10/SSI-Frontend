@@ -39,10 +39,10 @@ body {
 
 .auth-header-inner {
   max-width: none;
-  padding: 8px 24px;
+  padding: 4px 24px;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 16px;
   position: relative;
 }
@@ -65,6 +65,44 @@ body {
   color: #EAF6F4;
   letter-spacing: 0.2px;
   white-space: nowrap;
+}
+
+.auth-brand-app {
+  gap: 2px;
+}
+
+.auth-brand-app .sarvekshan-eye {
+  height: 50px;
+  width: auto;
+  object-fit: contain;
+}
+
+.auth-brand-app .sarvekshan-text {
+  height: 62px;
+  width: auto;
+  object-fit: contain;
+}
+
+.auth-brand-app span {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #FFFFFF;
+}
+
+.auth-brand-cdac {
+  margin-left: auto;
+  gap: 2px;
+}
+
+.auth-brand-cdac img {
+  height: 36px;
+}
+
+.auth-brand-cdac span {
+  font-size: 13px;
+  font-weight: 700;
+  color: #FFFFFF;
 }
 
 .auth-tagline {
