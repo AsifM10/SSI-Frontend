@@ -12,7 +12,7 @@ import { useSelector } from "react-redux";
 import { useState, useEffect } from "react";
 import { selectUser } from "../../store/slices/authSlice";
 import { getProjectsForUser } from "../../services/projectService";
-import SarvekshanEye from "../../assets/sarvekshan_eye.png";
+import SarvekshanMonitor from "../../assets/sarvekshan_monitor.png";
 
 import "./Sidebar.css";
 
@@ -72,7 +72,7 @@ const Sidebar = ({ collapsed }) => {
       <div className="sidebar-top">
         <div className="sidebar-logo">
           <div className="logo-icon">
-            <img src={SarvekshanEye} alt="Sarvekshan" />
+            <img src={SarvekshanMonitor} alt="Sarvekshan" />
           </div>
 
           {!collapsed && (

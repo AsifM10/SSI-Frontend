@@ -326,7 +326,20 @@ useEffect(() => {
   }
 };
 
+/* AUTO REFRESH EVERY 2 MINUTES */
+useEffect(() => {
+  if (!activeMachine?.machineId) return;
+
+  const interval = setInterval(() => {
+    handleRefresh();
+  }, 120000);
+
+  return () => clearInterval(interval);
+}, [activeMachine.machineId, selectedRange]);
+
 const handleDeleteMachine = () => {
+
+  
   if (!selectedMachine) return;
 
   const machine = machines.find(

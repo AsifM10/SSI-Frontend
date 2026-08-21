@@ -296,20 +296,76 @@ textarea {
 .tags-input {
   width: 100%;
 
-  height: 46px;
+  min-height: 46px;
 
   border: 1px solid var(--border-color);
 
   border-radius: 12px;
 
-  padding: 0 14px;
+  padding: 6px 10px;
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+
+  gap: 6px;
 
   font-size: 14px;
 
   background: var(--card-bg);
   color: var(--text-primary);
 
+  cursor: text;
+
   transition: 0.2s ease;
+}
+
+.tags-input input {
+  flex: 1;
+  min-width: 120px;
+  height: 30px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.tags-input input::placeholder {
+  color: var(--text-secondary);
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 6px 0 12px;
+  border-radius: 999px;
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tag-chip-remove {
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--primary-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+
+.tag-chip-remove:hover {
+  background: var(--danger-bg);
+  color: var(--danger-color);
 }
 
 /* =========================

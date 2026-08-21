@@ -61,11 +61,7 @@
 
 
 
-
-
-
-
-// new code with D-
+//new code with D-
 
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -76,6 +72,7 @@ import Login from "../pages/Login/Login";
 import Register from "../pages/Register/Register";
 import DepartmentDetails from "../pages/DepartmentDetails/DepartmentDetails";
 import Departments from "../pages/Departments/Departments";
+import ProjectMachines from "../pages/ProjectMachines/ProjectMachines";
 import MonitoringDetails from "../pages/MonitoringDetails/MonitoringDetails";
 import CpuPage from "../pages/Monitoring/CPU/CpuPage";
 import GpuPage from "../pages/Monitoring/GPU/GpuPage";
@@ -93,6 +90,7 @@ import CreateDepartmentViewer from "../pages/DepartmentViewer/CreateDepartmentVi
 import DepartmentAdminView from "../pages/DepartmentAdmin/DepartmentAdminView";
 import CentralViewerView from "../pages/CentralViewer/CentralViewerView";
 
+
 import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
 
@@ -108,8 +106,7 @@ export default function AppRoutes() {
         <Route path="/" element={<Login />} />
 
         <Route path="/register" element={<Register />} />
-
-
+        
 
         {/* ========================= */}
         {/* Protected Routes */}
@@ -147,6 +144,15 @@ export default function AppRoutes() {
           element={
             <ProtectedRoute>
               <DepartmentDetails />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/machines/:projectId"
+          element={
+            <ProtectedRoute>
+              <ProjectMachines />
             </ProtectedRoute>
           }
         />
@@ -292,5 +298,3 @@ export default function AppRoutes() {
     </BrowserRouter>
   );
 }
-
-

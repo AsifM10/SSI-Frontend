@@ -42,6 +42,44 @@ export const getDepartmentById = async (deptId) => {
   return response.data.data;
 };
 
+export const getProjectsTags = async () => {
+  const response = await api.get("/api/projects/tags");
+  return response.data.data || [];
+};
+
+export const searchProjects = async (filters = {}) => {
+  const params = new URLSearchParams();
+
+  if (filters.projectName) {
+    params.append("projectName", filters.projectName);
+  }
+
+  if (filters.tags && filters.tags.length > 0) {
+    filters.tags.forEach((tag) => {
+      params.append("tags", tag);
+    });
+  }
+
+  if (filters.status) {
+    params.append("status", filters.status);
+  }
+
+  if (filters.cpuCores) {
+    params.append("cpuCores", filters.cpuCores);
+  }
+
+  if (filters.matchAll !== undefined) {
+    params.append("matchAll", filters.matchAll.toString());
+  }
+
+  if (filters.deptId) {
+    params.append("deptId", filters.deptId);
+  }
+
+  const response = await api.get(`/api/projects${params.toString() ? `?${params.toString()}` : ""}`);
+  return response.data.data || [];
+};
+
 export const getProjectsForUser = async (user = {}) => {
   const isCentral =
     user.role === "CENTRAL_ADMIN" || user.role === "CENTRAL_VIEWER";

@@ -1,0 +1,234 @@
+.dt-wrap {
+  width: 100%;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  box-shadow: 0 1px 3px var(--shadow-sm);
+  overflow: hidden;
+}
+
+.dt-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.dt-table thead th {
+  padding: 12px 14px;
+  text-align: left;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dt-table thead th:last-child {
+  text-align: right;
+  padding-right: 16px;
+}
+
+.dt-table tbody td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--surface-3);
+  color: var(--text-primary);
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.dt-table tbody tr {
+  transition: background 0.15s ease;
+  cursor: default;
+}
+
+.dt-table tbody tr.dt-row-click {
+  cursor: pointer;
+}
+
+.dt-table tbody tr:hover {
+  background: var(--hover-bg);
+}
+
+.dt-table tbody tr:nth-child(even) {
+  background: var(--primary-lighter);
+}
+
+.dt-table tbody tr:nth-child(even):hover {
+  background: var(--hover-bg);
+}
+
+.dt-center {
+  text-align: center !important;
+}
+
+/* ============ name (icon + text) ============ */
+
+.dt-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.dt-icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--primary-light), var(--surface-2));
+  color: var(--primary-color);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+.dt-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ============ ip ============ */
+
+.dt-ip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  vertical-align: middle;
+  overflow: visible;
+}
+
+.dt-ip svg {
+  font-size: 14px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.dt-table tbody td:has(.dt-ip) {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+/* ============ tags ============ */
+
+.dt-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.dt-tag {
+  flex: 0 0 auto;
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--primary-light, rgba(37, 99, 235, 0.1));
+  color: var(--primary-color);
+  white-space: nowrap;
+}
+
+.dt-tag-more {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+.dt-tag-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.dt-table tbody td:has(.dt-tags) {
+  white-space: normal;
+}
+
+/* ============ actions ============ */
+
+.dt-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.dt-action-btn {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 7px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 10px var(--shadow-sm);
+}
+
+.dt-action-btn:active {
+  transform: translateY(0);
+}
+
+.dt-action-view {
+  border: 1px solid #10B981;
+  background: #10B981;
+  color: #F6F8FB;
+}
+
+.dt-action-view:hover {
+  background: #0EA371;
+  border-color: #0EA371;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+}
+
+.dt-action-edit {
+  border: 1px solid #3B82F6;
+  background: #3B82F6;
+  color: #F6F8FB;
+}
+
+.dt-action-edit:hover {
+  background: #2563EB;
+  border-color: #2563EB;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+}
+
+.dt-action-delete {
+  border: 1px solid var(--danger-color);
+  background: var(--danger-color);
+  color: #F6F8FB;
+}
+
+.dt-action-delete:hover {
+  background: #DC2626;
+  border-color: #DC2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+}

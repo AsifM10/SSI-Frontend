@@ -47,7 +47,8 @@ const AddMachineModal = ({
 
   const [status, setStatus] = useState("HEALTHY");
 
-  const [tags, setTags] = useState("");
+  const [tagList, setTagList] = useState([]);
+  const [tagInput, setTagInput] = useState("");
   const [sshport, setSshport] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -76,7 +77,8 @@ useEffect(() => {
     );
     setOsType(machine.osType || "");
     setStatus(machine.status || "HEALTHY");
-    setTags((machine.tags || []).join(", "));
+    setTagList(machine.tags || []);
+    setTagInput("");
     setSshport(machine.sshport || "");
     setUsername(machine.username || "");
     setPassword(machine.password || "");
@@ -92,7 +94,8 @@ useEffect(() => {
     setGpuAvailable(false);
     setOsType("");
     setStatus("HEALTHY");
-    setTags("");
+    setTagList([]);
+    setTagInput("");
     setSshport("");
     setUsername("");
     setPassword("");
@@ -112,10 +115,7 @@ useEffect(() => {
       gpuCount: gpuAvailable ? Number(gpuCount) : 0,
       osType,
       status,
-      tags: tags
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean),
+      tags: tagList,
       projectId: Number(projectId),
       sshport, 
       username,
@@ -152,6 +152,26 @@ useEffect(() => {
 };
 
   if (!open) return null;
+
+  const addTag = () => {
+    const tag = tagInput.trim().replace(/,+$/, "");
+    if (!tag) return;
+    setTagList((prev) => (prev.includes(tag) ? prev : [...prev, tag]));
+    setTagInput("");
+  };
+
+  const removeTag = (tag) => {
+    setTagList((prev) => prev.filter((t) => t !== tag));
+  };
+
+  const handleTagKeyDown = (e) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addTag();
+    } else if (e.key === "Backspace" && !tagInput && tagList.length > 0) {
+      removeTag(tagList[tagList.length - 1]);
+    }
+  };
 
  return (
   <div className="machine-modal-overlay">
@@ -440,13 +460,29 @@ useEffect(() => {
         <div className="machine-create-field machine-create-full">
           <label>Tags</label>
 
-          <input
-            className="machine-create-tags"
-            type="text"
-            placeholder="e.g. gpu, production, ml"
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-          />
+          <div className="machine-create-tags">
+            {tagList.map((tag) => (
+              <span className="machine-create-tag-chip" key={tag}>
+                {tag}
+                <button
+                  type="button"
+                  className="machine-create-tag-remove"
+                  onClick={() => removeTag(tag)}
+                  aria-label={`Remove ${tag}`}
+                >
+                  <CloseOutlined />
+                </button>
+              </span>
+            ))}
+            <input
+              type="text"
+              placeholder={tagList.length === 0 ? "Type a tag and press Enter" : ""}
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={handleTagKeyDown}
+              onBlur={addTag}
+            />
+          </div>
         </div>
           </>
         )}

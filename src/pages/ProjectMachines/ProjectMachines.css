@@ -1,0 +1,16 @@
+.machine-ip-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.machine-ip-cell svg {
+  color: var(--primary-color);
+  font-size: 13px;
+}

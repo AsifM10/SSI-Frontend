@@ -21,7 +21,7 @@ import {
 import ForgotPasswordModal from "../../components/modals/ForgotPasswordModal/ForgotPasswordModal";
 import RegistrationSuccessModal from "../../components/modals/RegistrationSuccessModal/RegistrationSuccessModal";
 import CDACLogo from "../../assets/CDAC.png";
-import SarvekshanEye from "../../assets/sarvekshan_eye.png";
+import SarvekshanMonitor from "../../assets/sarvekshan_monitor.png";
 import SarvekshanText from "../../assets/sarvekshan_text.png";
 import "../../styles/Auth.css";
 
@@ -318,7 +318,7 @@ function Login() {
       <header className="auth-header">
         <div className="auth-header-inner">
           <div className="auth-brand auth-brand-app">
-            <img className="sarvekshan-eye" src={SarvekshanEye} alt="Sarvekshan" />
+            <img className="sarvekshan-monitor" src={SarvekshanMonitor} alt="Sarvekshan" />
             <img className="sarvekshan-text" src={SarvekshanText} alt="Sarvekshan" />
           </div>
           <div className="auth-brand auth-brand-cdac">

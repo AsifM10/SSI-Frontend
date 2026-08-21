@@ -68,11 +68,11 @@ body {
 }
 
 .auth-brand-app {
-  gap: 2px;
+  gap: 0;
 }
 
-.auth-brand-app .sarvekshan-eye {
-  height: 50px;
+.auth-brand-app .sarvekshan-monitor {
+  height: 60px;
   width: auto;
   object-fit: contain;
 }

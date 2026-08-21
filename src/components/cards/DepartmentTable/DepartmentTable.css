@@ -5,7 +5,6 @@
   border-radius: var(--border-radius);
   border: 1px solid var(--border-color);
   box-shadow: 0 1px 3px var(--shadow-sm);
-  overflow: hidden;
 }
 
 .department-table-wrapper::-webkit-scrollbar {
@@ -23,13 +22,14 @@
 
 .department-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 14px;
 }
 
 .department-table thead th {
   text-align: left;
-  padding: 14px 20px;
+  padding: 12px 14px;
   background: linear-gradient(135deg, var(--surface-2) 0%, var(--primary-lighter) 100%);
   color: var(--text-secondary);
   font-weight: 600;
@@ -42,13 +42,13 @@
 
 .department-table thead th:first-child {
   border-radius: 13px 0 0 0;
-  padding-left: 24px;
+  padding-left: 16px;
 }
 
 .department-table thead th:last-child {
   border-radius: 0 13px 0 0;
   text-align: right;
-  padding-right: 24px;
+  padding-right: 16px;
 }
 
 .department-table thead th:nth-child(2),
@@ -58,7 +58,7 @@
 }
 
 .department-table tbody td {
-  padding: 14px 20px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--surface-3);
   color: var(--text-primary);
   font-size: 14px;
@@ -75,7 +75,7 @@
 
 .department-table tbody td:last-child {
   text-align: right;
-  padding-right: 24px;
+  padding-right: 16px;
 }
 
 .department-table tbody tr:last-child td {
@@ -107,16 +107,21 @@
   opacity: 1;
 }
 
-.department-table tbody tr:has(.status-badge.healthy)::before {
+.department-table tbody tr:has(.status-indicator.healthy)::before {
   background: var(--success-color);
 }
 
-.department-table tbody tr:has(.status-badge.warning)::before {
+.department-table tbody tr:has(.status-indicator.warning)::before {
   background: var(--warning-color);
 }
 
-.department-table tbody tr:has(.status-badge.critical)::before {
+.department-table tbody tr:has(.status-indicator.critical)::before {
   background: var(--danger-color);
+}
+
+.department-table tbody tr:has(.status-indicator.offline)::before,
+.department-table tbody tr:has(.status-indicator-none)::before {
+  background: var(--text-muted);
 }
 
 /* =========================
@@ -125,9 +130,10 @@
 
 .table-tags-cell {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
-  max-width: 220px;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .table-tag {
@@ -147,7 +153,13 @@
   font-size: 13px;
 }
 
-.department-table tbody tr:has(.status-badge.no-machines)::before {
+.table-tag-more {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+.department-table tbody tr:has(.status-indicator.offline)::before,
+.department-table tbody tr:has(.status-indicator-none)::before {
   background: var(--text-muted);
 }
 
@@ -164,12 +176,25 @@
 }
 
 .department-name-cell {
+  vertical-align: middle;
+  padding-left: 4px;
+}
+
+.department-name-inner {
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
+  max-width: none;
+}
+
+.department-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
   font-weight: 600;
   color: var(--text-primary);
-  padding-left: 4px;
 }
 
 .department-icon {
@@ -189,74 +214,6 @@
 .department-table tbody td:not(.department-name-cell):not(:last-child) {
   font-weight: 500;
   color: var(--text-secondary);
-}
-
-.status-badge {
-  padding: 5px 14px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  letter-spacing: 0.2px;
-  white-space: nowrap;
-}
-
-.status-badge::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.status-badge.healthy {
-  background: var(--success-bg);
-  color: var(--success-text);
-  border: 1px solid var(--success-border);
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.15);
-}
-
-.status-badge.healthy::before {
-  background: var(--success-color);
-  box-shadow: 0 0 6px var(--success-color);
-}
-
-.status-badge.warning {
-  background: var(--warning-bg);
-  color: var(--warning-text);
-  border: 1px solid var(--warning-border);
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.15);
-}
-
-.status-badge.warning::before {
-  background: var(--warning-color);
-  box-shadow: 0 0 6px var(--warning-color);
-}
-
-.status-badge.critical {
-  background: var(--danger-bg);
-  color: var(--danger-text);
-  border: 1px solid var(--danger-border);
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.15);
-}
-
-.status-badge.critical::before {
-  background: var(--danger-color);
-  box-shadow: 0 0 6px var(--danger-color);
-}
-
-.status-badge.no-machines {
-  background: var(--warning-bg);
-  color: var(--warning-text);
-  border: 1px solid var(--warning-border);
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.15);
-}
-
-.status-badge.no-machines::before {
-  background: var(--warning-color);
-  box-shadow: 0 0 6px var(--warning-color);
 }
 
 .department-view-btn {

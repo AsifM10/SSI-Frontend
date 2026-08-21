@@ -3,7 +3,6 @@ import { Link, NavLink, useParams } from "react-router-dom";
 import { FiCpu } from "react-icons/fi";
 import {
   CalendarOutlined,
-  ReloadOutlined,
   DownOutlined,
   DeleteOutlined,
   DashboardOutlined,
@@ -31,6 +30,15 @@ const DEFAULT_TIME_RANGES = [
   "Last 24 Hours",
   "Last 7 Days",
 ];
+
+const TIME_RANGE_LABELS = {
+  "Last 5 Minutes": "Last 5 min",
+  "Last 15 Minutes": "Last 15 min",
+  "Last 1 Hour": "Last 1 hr",
+  "Last 6 Hours": "Last 6 hr",
+  "Last 24 Hours": "Last 24 hr",
+  "Last 7 Days": "Last 7 days",
+};
 
 const LeafIcon = ({ size = 15 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -141,12 +149,12 @@ const toggleDropdown = (which) => {
           <div className="monitoring-actions">
             <button
               className="machine-view-btn"
-              title="Machine Info"
+              title="Info"
               disabled={!selectedMachine}
               onClick={() => setShowMachineDetails(true)}
             >
               <InfoCircleOutlined />
-              <span>Machine Info</span>
+              <span>Info</span>
             </button>
             {currentUser.role === "DEPT_ADMIN" && onAddMachine && (
               <button className="add-machine-btn" onClick={onAddMachine}>
@@ -180,7 +188,7 @@ const toggleDropdown = (which) => {
                 onClick={() => toggleDropdown("time")}
               >
                 <CalendarOutlined />
-                <span>{selectedRange}</span>
+                <span>{TIME_RANGE_LABELS[selectedRange] || selectedRange}</span>
                 <DownOutlined />
               </button>
 
@@ -192,20 +200,12 @@ const toggleDropdown = (which) => {
                     className={`time-option ${selectedRange === range ? "active" : ""}`}
                     onClick={() => handleRangeClick(range)}
                   >
-                    {range}
+{TIME_RANGE_LABELS[range] || range}
                   </button>
                 ))}
               </div>
             )}
           </div>
-
-          <button
-            className={`refresh-btn ${isRefreshing ? "refreshing" : ""}`}
-            onClick={onRefresh}
-            disabled={isRefreshing}
-          >
-            <ReloadOutlined />
-          </button>
         </div>
       </div>
 
