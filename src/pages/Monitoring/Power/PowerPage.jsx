@@ -41,7 +41,6 @@ const rangeMap = {
   "Last 1 Hour": "1h",
   "Last 6 Hours": "6h",
   "Last 24 Hours": "24h",
-  "Last 7 Days": "7d",
 };
 
 
@@ -98,7 +97,6 @@ const startLabel = {
   "Last 1 Hour": "-1h",
   "Last 6 Hours": "-6h",
   "Last 24 Hours": "-24h",
-  "Last 7 Days": "-7d",
 }[range];
 
 
@@ -159,6 +157,17 @@ useEffect(() => {
   if (activeMachine) {
     loadPowerMetrics(activeMachine, selectedRange);
   }
+}, [activeMachine, selectedRange]);
+
+
+useEffect(() => {
+  if (!activeMachine) return;
+
+  const interval = setInterval(() => {
+    loadPowerMetrics(activeMachine, selectedRange);
+  }, 120000);
+
+  return () => clearInterval(interval);
 }, [activeMachine, selectedRange]);
 
   return (

@@ -16,9 +16,14 @@ import {
   FilterOutlined,
   CloseOutlined,
   TagOutlined,
+  CheckCircleOutlined,
+  ThunderboltOutlined,
+  DownOutlined,
 } from "@ant-design/icons";
 
 import { useParams, useNavigate, Link } from "react-router-dom";
+
+import { Dropdown } from "antd";
 
 import MainLayout from "../../layouts/MainLayout/MainLayout";
 
@@ -70,6 +75,40 @@ const CpuOptions = [
   { value: "64", label: "64+ Cores" },
 ];
 
+const SEARCH_BY_OPTIONS = [
+  { value: "name", label: "Name" },
+  { value: "tags", label: "Tags" },
+  { value: "status", label: "Project Status" },
+  { value: "cpu", label: "CPU Cores" },
+];
+
+const SEARCH_PLACEHOLDERS = {
+  name: "Search projects by name...",
+  tags: "Search by tags (comma-separate multiple)...",
+  status: "Search by status (ACTIVE / INACTIVE)...",
+  cpu: "Minimum CPU cores (e.g. 8)...",
+};
+
+const SEARCH_CHIP_LABELS = {
+  name: "Name",
+  tags: "Tags",
+  status: "Status",
+  cpu: "CPU",
+};
+
+const SEARCH_BY_ICONS = {
+  name: SearchOutlined,
+  tags: TagOutlined,
+  status: CheckCircleOutlined,
+  cpu: ThunderboltOutlined,
+};
+
+const parseSearchTags = (query) =>
+  query
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+
 const DepartmentDetails = () => {
   const { departmentCode } = useParams();
 
@@ -84,6 +123,7 @@ const DepartmentDetails = () => {
   const [deptName, setDeptName] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchBy, setSearchBy] = useState("name");
   const [selectedTags, setSelectedTags] = useState([]);
   const [matchAll, setMatchAll] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
@@ -92,6 +132,7 @@ const DepartmentDetails = () => {
   const [tagsData, setTagsData] = useState([]);
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [deleteModal, setDeleteModal] = useState({ open: false, projectId: null, projectName: "" });
+  const [tagMatchIds, setTagMatchIds] = useState(null);
 
   useProjectsTags();
 
@@ -143,60 +184,106 @@ const DepartmentDetails = () => {
     fetchTags();
   }, []);
 
-  // Fetch projects - use backend search API when filters are active
+  // Fetch projects via the summary API (full row shape) and filter client-side
   const fetchProjects = useCallback(async () => {
     if (!deptId) return;
 
     try {
       setLoading(true);
-
-      const hasActiveFilters =
-        searchQuery ||
-        selectedTags.length > 0 ||
-        statusFilter ||
-        cpuFilter;
-
-      let data;
-      if (hasActiveFilters) {
-        data = await searchProjects({
-          deptId,
-          projectName: searchQuery || undefined,
-          tags: selectedTags.length > 0 ? selectedTags : undefined,
-          matchAll,
-          status: statusFilter || undefined,
-          cpuCores: cpuFilter || undefined,
-        });
-      } else {
-        data = await getProjectsByDepartment(deptId);
-      }
+      const data = await getProjectsByDepartment(deptId);
       setProjects(data || []);
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
     }
-  }, [deptId, searchQuery, selectedTags, matchAll, statusFilter, cpuFilter]);
+  }, [deptId]);
 
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
 
+  // Tags currently active from panel chips + typed tags (when in tags mode)
+  const backendTagFilter = useMemo(() => {
+    const typed =
+      searchBy === "tags" && searchQuery.trim()
+        ? parseSearchTags(searchQuery)
+        : [];
+    return [...new Set([...selectedTags, ...typed])];
+  }, [searchBy, searchQuery, selectedTags]);
+
+  // Hybrid: ask the backend which projectIds match the active tags,
+  // then intersect with the summary rows client-side
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      if (!deptId || backendTagFilter.length === 0) {
+        setTagMatchIds(null);
+        return;
+      }
+      try {
+        const matches = await searchProjects({
+          deptId,
+          tags: backendTagFilter,
+          matchAll,
+        });
+        if (!cancelled) {
+          setTagMatchIds(
+            new Set((matches || []).map((m) => m.projectId))
+          );
+        }
+      } catch (err) {
+        console.error("Backend tag search failed, falling back to local filtering:", err);
+        if (!cancelled) setTagMatchIds(null);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [deptId, backendTagFilter, matchAll]);
+
   const filteredProjects = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+
     return projects.filter((p) => {
-      const matchesName =
-        !searchQuery ||
-        (p.projectName && p.projectName.toLowerCase().includes(searchQuery.toLowerCase()));
+      let matchesSearch = true;
+
+      if (q) {
+        if (searchBy === "name") {
+          matchesSearch = Boolean(
+            p.projectName && p.projectName.toLowerCase().includes(q)
+          );
+        } else if (searchBy === "tags") {
+          const wanted = parseSearchTags(q);
+          if (wanted.length > 0) {
+            const projTags = normalizeTags(p.tags).map((t) => t.toLowerCase());
+            matchesSearch = matchAll
+              ? wanted.every((t) => projTags.includes(t))
+              : wanted.some((t) => projTags.includes(t));
+          }
+        } else if (searchBy === "status") {
+          matchesSearch =
+            String(p.status || "").toUpperCase() === q.toUpperCase();
+        } else if (searchBy === "cpu") {
+          const minCores = parseInt(q, 10);
+          matchesSearch =
+            !Number.isNaN(minCores) &&
+            Boolean(p.totalCpuCores && p.totalCpuCores >= minCores);
+        }
+      }
+
+      const projTags = normalizeTags(p.tags).map((t) => t.toLowerCase());
+      const wantedPanelTags = selectedTags.map((t) => t.toLowerCase());
 
       const matchesTag =
         selectedTags.length === 0 ||
-        (p.tags && {
-          true: normalizeTags(p.tags).every((tag) =>
-            selectedTags.map((t) => t.toLowerCase()).includes(tag.toLowerCase())
-          ),
-          false: normalizeTags(p.tags).some((tag) =>
-            selectedTags.map((t) => t.toLowerCase()).includes(tag.toLowerCase())
-          ),
-        }[matchAll]);
+        (projTags.length > 0 &&
+          (matchAll
+            ? wantedPanelTags.every((t) => projTags.includes(t))
+            : wantedPanelTags.some((t) => projTags.includes(t))));
 
       const matchesStatus =
         !statusFilter || String(p.status || "").toUpperCase() === statusFilter;
@@ -204,9 +291,17 @@ const DepartmentDetails = () => {
       const matchesCpu =
         !cpuFilter || (p.totalCpuCores && p.totalCpuCores >= parseInt(cpuFilter, 10));
 
-      return matchesName && matchesTag && matchesStatus && matchesCpu;
+      const matchesBackend = !tagMatchIds || tagMatchIds.has(p.projectId);
+
+      return (
+        matchesSearch &&
+        matchesTag &&
+        matchesStatus &&
+        matchesCpu &&
+        matchesBackend
+      );
     });
-  }, [projects, searchQuery, selectedTags, matchAll, statusFilter, cpuFilter]);
+  }, [projects, searchQuery, searchBy, selectedTags, matchAll, statusFilter, cpuFilter, tagMatchIds]);
 
   const canDeleteProject = user.role === "DEPT_ADMIN";
 
@@ -254,6 +349,14 @@ const DepartmentDetails = () => {
     );
   };
 
+  const SearchModeIcon = SEARCH_BY_ICONS[searchBy] || SearchOutlined;
+  const searchByLabel = SEARCH_BY_OPTIONS.find((o) => o.value === searchBy)?.label;
+
+  const searchByItems = SEARCH_BY_OPTIONS.map((opt) => {
+    const OptionIcon = SEARCH_BY_ICONS[opt.value] || SearchOutlined;
+    return { key: opt.value, icon: <OptionIcon />, label: opt.label };
+  });
+
   const breadcrumb = (
     <>
       <Link to="/dashboard" className="bc-link">Dashboard</Link>
@@ -282,25 +385,48 @@ const DepartmentDetails = () => {
             )}
 
             <div className="project-list-toolbar">
-              <div className="project-search">
-                <SearchOutlined className="search-icon" />
-                <input
-                  type="text"
-                  placeholder="Search projects by name..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="project-search-input"
-                  aria-label="Search projects by name"
-                />
-                {searchQuery && (
+              <div className="search-group">
+                <Dropdown
+                  trigger={["click"]}
+                  placement="bottomLeft"
+                  menu={{
+                    selectable: true,
+                    selectedKeys: [searchBy],
+                    onClick: ({ key }) => setSearchBy(key),
+                    items: searchByItems,
+                  }}
+                >
                   <button
-                    className="search-clear-btn"
-                    onClick={() => setSearchQuery("")}
-                    aria-label="Clear search"
+                    type="button"
+                    className="search-by-toggle"
+                    title={`Search by ${searchByLabel}`}
                   >
-                    <CloseOutlined />
+                    <SearchModeIcon className="search-by-icon" />
+                    <span>{SEARCH_CHIP_LABELS[searchBy]}</span>
+                    <DownOutlined className="search-by-chevron" />
                   </button>
-                )}
+                </Dropdown>
+
+                <div className="project-search">
+                  <SearchOutlined className="search-icon" />
+                  <input
+                    type="text"
+                    placeholder={SEARCH_PLACEHOLDERS[searchBy]}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="project-search-input"
+                    aria-label={`Search projects by ${searchByLabel}`}
+                  />
+                  {searchQuery && (
+                    <button
+                      className="search-clear-btn"
+                      onClick={() => setSearchQuery("")}
+                      aria-label="Clear search"
+                    >
+                      <CloseOutlined />
+                    </button>
+                  )}
+                </div>
               </div>
 
               <button
@@ -326,8 +452,12 @@ const DepartmentDetails = () => {
             </span>
 
             {searchQuery && (
-              <button className="active-filter-chip" onClick={() => setSearchQuery("")} title="Remove name filter">
-                <span className="chip-key">Name:</span> {searchQuery}
+              <button
+                className="active-filter-chip"
+                onClick={() => setSearchQuery("")}
+                title="Remove search"
+              >
+                <span className="chip-key">{SEARCH_CHIP_LABELS[searchBy]}:</span> {searchQuery}
                 <CloseOutlined className="chip-remove" />
               </button>
             )}

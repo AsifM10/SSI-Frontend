@@ -28,7 +28,6 @@ const DEFAULT_TIME_RANGES = [
   "Last 1 Hour",
   "Last 6 Hours",
   "Last 24 Hours",
-  "Last 7 Days",
 ];
 
 const TIME_RANGE_LABELS = {
@@ -37,7 +36,6 @@ const TIME_RANGE_LABELS = {
   "Last 1 Hour": "Last 1 hr",
   "Last 6 Hours": "Last 6 hr",
   "Last 24 Hours": "Last 24 hr",
-  "Last 7 Days": "Last 7 days",
 };
 
 const LeafIcon = ({ size = 15 }) => (

@@ -10,7 +10,7 @@ export const normalizeTags = (raw) => {
       return [];
     }
 
-    const stripped = clean.replace(/^\[|\]$/g, "");
+    const stripped = clean.replace(/^\[|\]$/g, "").replace(/["']/g, "");
     list = stripped ? stripped.split(",") : [];
   }
 

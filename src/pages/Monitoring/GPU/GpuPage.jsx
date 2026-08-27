@@ -90,7 +90,6 @@ const rangeMap = {
   "Last 1 Hour": "1h",
   "Last 6 Hours": "6h",
   "Last 24 Hours": "24h",
-  "Last 7 Days": "7d",
 };
 
 
@@ -154,7 +153,6 @@ const loadGpuMetrics = async (
   "Last 1 Hour": "-1h",
   "Last 6 Hours": "-6h",
   "Last 24 Hours": "-24h",
-  "Last 7 Days": "-7d",
 }[range];
 
 const formattedChart = (data.dataPoints || []).map((point, index) => ({
@@ -196,6 +194,20 @@ useEffect(() => {
   }
 }, [activeMachine, selectedRange]);
 
+
+useEffect(() => {
+  if (!activeMachine) return;
+
+  const interval = setInterval(() => {
+    const machine = machines.find(
+      (m) => Number(m.machineId) === Number(activeMachine)
+    );
+
+    loadGpuMetrics(activeMachine, selectedRange, machine);
+  }, 120000);
+
+  return () => clearInterval(interval);
+}, [activeMachine, selectedRange, machines]);
 
 
   return (

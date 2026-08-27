@@ -40,7 +40,6 @@ const rangeMap = {
   "Last 1 Hour": "1h",
   "Last 6 Hours": "6h",
   "Last 24 Hours": "24h",
-  "Last 7 Days": "7d",
 };
 
 
@@ -96,7 +95,6 @@ setTotalCarbon(data.totalCo2Kg || 0);
   "Last 1 Hour": "-1h",
   "Last 6 Hours": "-6h",
   "Last 24 Hours": "-24h",
-  "Last 7 Days": "-7d",
 }[range];
 
 const formattedChart = (data.dataPoints || []).map((point, index) => ({
@@ -157,6 +155,15 @@ useEffect(() => {
   }
 }, [activeMachine, selectedRange]);
 
+useEffect(() => {
+  if (!activeMachine) return;
+
+  const interval = setInterval(() => {
+    loadCarbonMetrics(activeMachine, selectedRange);
+  }, 120000);
+
+  return () => clearInterval(interval);
+}, [activeMachine, selectedRange]);
 
   return (
     <MainLayout title="Carbon Monitoring">

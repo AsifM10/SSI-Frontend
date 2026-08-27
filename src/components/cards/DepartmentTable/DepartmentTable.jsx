@@ -1,6 +1,5 @@
 import { useNavigate } from "react-router-dom";
 import { DeleteOutlined, EditOutlined, ArrowRightOutlined } from "@ant-design/icons";
-import StatusIndicator from "../../StatusIndicator/StatusIndicator";
 import DataTable from "../../DataTable/DataTable";
 
 const DepartmentTable = ({ departments, onAddClick, onDelete, onEdit }) => {
@@ -9,7 +8,7 @@ const DepartmentTable = ({ departments, onAddClick, onDelete, onEdit }) => {
   const columns = [
     {
       title: "Department Name",
-      width: "30%",
+      width: "32%",
       render: (department) => (
         <span className="dt-name">
           <span className="dt-icon">{department.icon}</span>
@@ -17,18 +16,12 @@ const DepartmentTable = ({ departments, onAddClick, onDelete, onEdit }) => {
         </span>
       ),
     },
-    { title: "Projects", width: "12%", align: "center", render: (d) => d.projects },
-    { title: "Machines", width: "12%", align: "center", render: (d) => d.machines },
-    { title: "Active Alerts", width: "14%", align: "center", render: (d) => d.alerts },
-    {
-      title: "Overall Status",
-      width: "14%",
-      align: "center",
-      render: (d) => <StatusIndicator status={d.status} />,
-    },
+    { title: "Projects", width: "14%", align: "center", render: (d) => d.projects },
+    { title: "Machines", width: "14%", align: "center", render: (d) => d.machines },
+    { title: "Active Alerts", width: "16%", align: "center", render: (d) => d.alerts },
     {
       title: "",
-      width: "18%",
+      width: "24%",
       render: (department) => (
         <div className="dt-actions">
           <button

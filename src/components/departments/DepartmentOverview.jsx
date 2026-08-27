@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { selectUser } from "../../store/slices/authSlice";
-import { DesktopOutlined, SearchOutlined, PlusOutlined } from "@ant-design/icons";
+import { DesktopOutlined, SearchOutlined, PlusOutlined, CloseOutlined } from "@ant-design/icons";
 import MainLayout from "../../layouts/MainLayout/MainLayout";
 import DepartmentTable from "../cards/DepartmentTable/DepartmentTable";
 import AddDepartmentModal from "../modals/AddDepartmentModal/AddDepartmentModal";
@@ -108,10 +108,19 @@ const DepartmentOverview = ({ title = "Department Overview" }) => {
             <SearchOutlined className="search-icon" />
             <input
               type="text"
-              placeholder="Search..."
+              placeholder="Search by name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            {searchQuery && (
+              <button
+                className="search-clear-btn"
+                onClick={() => setSearchQuery("")}
+                aria-label="Clear search"
+              >
+                <CloseOutlined />
+              </button>
+            )}
           </div>
         </div>
 

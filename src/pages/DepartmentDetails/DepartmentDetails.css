@@ -752,11 +752,36 @@
   flex-wrap: wrap;
 }
 
+/* Unified search group: [by ▾ | input ✕] */
+.search-group {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  min-width: 300px;
+  max-width: 520px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  box-shadow: 0 1px 3px var(--shadow-xs);
+  transition: var(--transition);
+}
+
+.search-group:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 8px var(--shadow-sm);
+}
+
+.search-group:focus-within {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px var(--focus-ring), 0 2px 8px var(--shadow-sm);
+}
+
 .project-search {
   position: relative;
   flex: 1;
-  min-width: 260px;
-  max-width: 420px;
+  display: flex;
+  align-items: center;
+  min-width: 0;
 }
 
 .search-icon {
@@ -767,16 +792,20 @@
   color: var(--text-muted);
   font-size: 15px;
   pointer-events: none;
+  transition: var(--transition);
+}
+
+.search-group:focus-within .search-icon {
+  color: var(--primary-color);
 }
 
 .project-search-input {
   width: 100%;
-  padding: 11px 40px 11px 40px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-sm);
+  padding: 11px 38px 11px 40px;
+  border: none;
+  background: transparent;
   font-size: 14px;
   color: var(--text-primary);
-  background: var(--surface-1);
   transition: var(--transition);
 }
 
@@ -786,26 +815,64 @@
 
 .project-search-input:focus {
   outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .search-clear-btn {
   position: absolute;
-  right: 8px;
+  right: 6px;
   top: 50%;
   transform: translateY(-50%);
   border: none;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 4px;
+  padding: 0;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
   transition: var(--transition);
+}
+
+/* Compact field picker: icon + label + chevron on the input's left edge */
+.search-by-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px 11px 16px;
+  border: none;
+  border-right: 1px solid var(--border-color);
+  background: transparent;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.search-by-toggle:hover,
+.search-by-toggle:focus-visible,
+.search-group:focus-within .search-by-toggle {
+  color: var(--primary-color);
+}
+
+.search-by-toggle:focus-visible {
+  outline: none;
+}
+
+.search-by-icon {
+  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.search-by-chevron {
+  font-size: 9px;
+  opacity: 0.7;
 }
 
 .search-clear-btn:hover {

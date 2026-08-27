@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { message } from "antd";
+import { message, notification } from "antd";
 import {
   createMachine,
   updateMachine,
 } from "../../../services/machineService";
+import { getProjectsByDepartment } from "../../../services/projectService";
 
 import {
   CloseOutlined,
@@ -29,6 +30,7 @@ const AddMachineModal = ({
   open,
   onClose,
   projectId,
+  deptId,
   onMachineCreated,
   machine,
 }) => {
@@ -45,66 +47,107 @@ const AddMachineModal = ({
 
   const [osType, setOsType] = useState("");
 
-  const [status, setStatus] = useState("HEALTHY");
-
   const [tagList, setTagList] = useState([]);
   const [tagInput, setTagInput] = useState("");
   const [sshport, setSshport] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
+  const [projects, setProjects] = useState([]);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [projectsLoading, setProjectsLoading] = useState(false);
+
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
 
-useEffect(() => {
-  setStep(1);
-  setShowPassword(false);
+  // Resolve deptId from prop, else fall back to the logged-in user
+  const userId = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("user") || "{}") : {};
+  const resolvedDeptId = deptId ?? userId.deptId;
 
-  if (machine) {
-    setHostname(machine.hostname || "");
-    setIpAddress(machine.ipAddress || "");
-    setCpuCores(machine.cpuCores || "");
-    setMemoryGb(machine.memoryGb || "");
-    setStorageGb(machine.storageGb || "");
-    setGpuModel(machine.gpuModel || "");
-    setGpuCount(machine.gpuCount || "");
-    setGpuAvailable(
-      Number(machine.gpuCount) > 0 ||
-        (machine.gpuModel &&
-          machine.gpuModel.trim() !== "" &&
-          machine.gpuModel !== "None" &&
-          machine.gpuModel !== "N/A")
-    );
-    setOsType(machine.osType || "");
-    setStatus(machine.status || "HEALTHY");
-    setTagList(machine.tags || []);
-    setTagInput("");
-    setSshport(machine.sshport || "");
-    setUsername(machine.username || "");
-    setPassword(machine.password || "");
+  useEffect(() => {
+    setStep(1);
+    setShowPassword(false);
 
-  } else {
-    setHostname("");
-    setIpAddress("");
-    setCpuCores("");
-    setMemoryGb("");
-    setStorageGb("");
-    setGpuModel("");
-    setGpuCount("");
-    setGpuAvailable(false);
-    setOsType("");
-    setStatus("HEALTHY");
-    setTagList([]);
-    setTagInput("");
-    setSshport("");
-    setUsername("");
-    setPassword("");
+    if (machine) {
+      setHostname(machine.hostname || "");
+      setIpAddress(machine.ipAddress || "");
+      setCpuCores(machine.cpuCores || "");
+      setMemoryGb(machine.memoryGb || "");
+      setStorageGb(machine.storageGb || "");
+      setGpuModel(machine.gpuModel || "");
+      setGpuCount(machine.gpuCount || "");
+      setGpuAvailable(
+        Number(machine.gpuCount) > 0 ||
+          (machine.gpuModel &&
+            machine.gpuModel.trim() !== "" &&
+            machine.gpuModel !== "None" &&
+            machine.gpuModel !== "N/A")
+      );
+      setOsType(machine.osType || "");
+      setTagList(machine.tags || []);
+      setTagInput("");
+      setSshport(machine.sshport || "");
+      setUsername(machine.username || "");
+      setPassword(machine.password || "");
+    } else {
+      setHostname("");
+      setIpAddress("");
+      setCpuCores("");
+      setMemoryGb("");
+      setStorageGb("");
+      setGpuModel("");
+      setGpuCount("");
+      setGpuAvailable(false);
+      setOsType("");
+      setTagList([]);
+      setTagInput("");
+      setSshport("");
+      setUsername("");
+      setPassword("");
+    }
+  }, [machine]);
 
-  }
-}, [machine]);
+  // Load projects for the department to populate the project dropdown
+  useEffect(() => {
+    if (!open || !resolvedDeptId) return;
+
+    let cancelled = false;
+
+    const loadProjects = async () => {
+      try {
+        setProjectsLoading(true);
+        const data = await getProjectsByDepartment(resolvedDeptId);
+        if (!cancelled) {
+          const list = Array.isArray(data) ? data : [];
+          setProjects(list);
+          // Default to current project (if editing or context), else first project
+          const initial =
+            machine?.projectId ??
+            (projectId !== undefined && projectId !== null ? Number(projectId) : null) ??
+            list[0]?.projectId ??
+            "";
+          setSelectedProjectId(initial);
+        }
+      } catch (err) {
+        console.error("Failed to load projects:", err);
+      } finally {
+        if (!cancelled) setProjectsLoading(false);
+      }
+    };
+
+    loadProjects();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, resolvedDeptId, projectId, machine]);
 
   const handleSubmit = async () => {
   try {
+    if (!selectedProjectId) {
+      message.warning("Please select a project.");
+      return;
+    }
+
     const payload = {
       hostname,
       ipAddress,
@@ -114,9 +157,8 @@ useEffect(() => {
       gpuModel: gpuAvailable ? gpuModel : "",
       gpuCount: gpuAvailable ? Number(gpuCount) : 0,
       osType,
-      status,
       tags: tagList,
-      projectId: Number(projectId),
+      projectId: Number(selectedProjectId),
       sshport, 
       username,
       password,
@@ -126,10 +168,22 @@ useEffect(() => {
       await updateMachine(machine.machineId, payload);
 
       message.success("Machine updated successfully!");
+      notification.success({
+        message: "Machine Updated",
+        description: `${hostname || "Machine"} was updated successfully.`,
+        placement: "topRight",
+        duration: 3,
+      });
     } else {
       await createMachine(payload);
 
       message.success("Machine created successfully!");
+      notification.success({
+        message: "Machine Added",
+        description: `${hostname || "Machine"} was added to the project successfully.`,
+        placement: "topRight",
+        duration: 3,
+      });
     }
 
     if (onMachineCreated) {
@@ -373,25 +427,28 @@ useEffect(() => {
           </>
         )}
 
-        {/* STATUS */}
-
-        <div className="machine-create-field">
-          <label>Status</label>
-
-          <div className="machine-create-select">
-            <span>{status}</span>
-            <DownOutlined />
-          </div>
-        </div>
-
         {/* PROJECT */}
 
         <div className="machine-create-field">
           <label>Project</label>
 
           <div className="machine-create-select">
-            <span>Current Project</span>
-            <DownOutlined />
+            <select
+              className="machine-create-dropdown"
+              value={selectedProjectId}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+              disabled={projectsLoading}
+            >
+              <option value="">
+                {projectsLoading ? "Loading projects..." : "Select a project"}
+              </option>
+              {projects.map((p) => (
+                <option key={p.projectId} value={p.projectId}>
+                  {p.projectName}
+                </option>
+              ))}
+            </select>
+            <DownOutlined className="machine-create-select-arrow" />
           </div>
         </div>
           </>

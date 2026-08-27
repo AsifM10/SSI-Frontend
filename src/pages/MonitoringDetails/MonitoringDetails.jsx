@@ -27,7 +27,6 @@ const timeRanges = [
   "Last 1 Hour",
   "Last 6 Hours",
   "Last 24 Hours",
-  "Last 7 Days",
 ];
 
 const rangeMap = {
@@ -36,7 +35,6 @@ const rangeMap = {
   "Last 1 Hour": "1h",
   "Last 6 Hours": "6h",
   "Last 24 Hours": "24h",
-  "Last 7 Days": "7d",
 };
 
 const buildMetricCards = (data, power, carbon) => {
