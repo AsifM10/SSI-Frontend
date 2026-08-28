@@ -25,7 +25,7 @@
   width: 18px;
   height: 60px;
   border-radius: 0 10px 10px 0;
-  background: #0E6E66;
+  background: #075E58;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-left: none;
   color: rgba(255, 255, 255, 0.85);
@@ -51,9 +51,9 @@
 }
 
 .sidebar-toggle:hover {
-  background: #3BA0A0;
+  background: #0E7A74;
   color: #FFFFFF;
-  border-color: #3BA0A0;
+  border-color: #0E7A74;
 }
 
 .topbar-wrapper {

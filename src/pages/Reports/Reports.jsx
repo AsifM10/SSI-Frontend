@@ -483,14 +483,10 @@ const Reports = () => {
       doc.setFontSize(fontSize.title);
       doc.setTextColor(...color.text);
       doc.text("Monitoring Report", m, y);
-      y += 9;
+      y += 14;
 
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(fontSize.subtitle);
-      doc.setTextColor(...color.textMuted);
-      doc.text(subtitle, m, y);
-      y += 7;
       doc.setFontSize(fontSize.small);
+      doc.setTextColor(...color.textMuted);
       doc.text(`Generated ${generatedDate}`, m, y);
       y += 14;
 
@@ -522,7 +518,7 @@ const Reports = () => {
       }
       metaItems.push({ label: "Scope", value: scopeLabel });
       metaItems.push({
-        label: "Period",
+        label: "Interval",
         value: typeof period === "string" ? period.charAt(0).toUpperCase() + period.slice(1) : period,
       });
       metaItems.push({ label: "Total Machines", value: String(machineCount) });
@@ -718,7 +714,7 @@ const Reports = () => {
           label: "Scope",
           value: (<><span className="kv-scope-icon">{scopeIcons[scope]}</span>{titleCase(scope)}</>),
         });
-        items.push({ label: "Period", value: titleCase(reportData.period) });
+        items.push({ label: "Interval", value: titleCase(reportData.period) });
         items.push({ label: "Total Machines", value: reportData.machineCount });
         return items;
       })()
@@ -763,9 +759,9 @@ const Reports = () => {
               <div className="info-guide-step">
                 <span className="info-guide-step-num">3</span>
                 <div>
-                  <strong>Configure Period</strong>
+                  <strong>Configure Interval</strong>
                   <p>Select the time range for your report. For daily or weekly reports, pick both a month and year. Monthly reports only need a year, while yearly reports cover the full year automatically.</p>
-                  <p className="info-guide-note">Note: Department reports only support Monthly &amp; Yearly periods.</p>
+                  <p className="info-guide-note">Note: Department reports only support Monthly &amp; Yearly intervals.</p>
                 </div>
               </div>
               <div className="info-guide-step">
@@ -944,7 +940,7 @@ const Reports = () => {
           <div className="config-section-body">
             <div className="form-row">
               <div className="form-group">
-                <label>Period</label>
+                <label>Interval</label>
                 <Select value={period} onChange={handlePeriodChange} className="form-select" disabled={!selectedReportType}>
                   {filteredPeriods.map((p) => (
                     <Select.Option key={p} value={p}>{titleCase(p)}</Select.Option>
