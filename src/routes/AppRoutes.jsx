@@ -100,14 +100,6 @@ export default function AppRoutes() {
           }
         />
         <Route
-          path="/holder-my-identity"
-          element={
-            <RoleGuard allowedRoles={["holder"]}>
-              <HolderDashboard activeTab="identity" />
-            </RoleGuard>
-          }
-        />
-        <Route
           path="/holder-credentials"
           element={
             <RoleGuard allowedRoles={["holder"]}>
@@ -120,6 +112,14 @@ export default function AppRoutes() {
           element={
             <RoleGuard allowedRoles={["holder"]}>
               <HolderDashboard activeTab="offers" />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/holder-proof-requests"
+          element={
+            <RoleGuard allowedRoles={["holder"]}>
+              <HolderDashboard activeTab="proofs" />
             </RoleGuard>
           }
         />
@@ -156,6 +156,14 @@ export default function AppRoutes() {
           element={
             <RoleGuard allowedRoles={["verifier"]}>
               <VerifierDashboard activeTab="proof-requests" />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/verifier-history"
+          element={
+            <RoleGuard allowedRoles={["verifier"]}>
+              <VerifierDashboard activeTab="history" />
             </RoleGuard>
           }
         />

@@ -246,6 +246,12 @@ export const holderService = {
     return res.data;
   },
 
+  declineProofRequest: async (requestId, reason) => {
+    if (MOCK_MODE) return await mockHolderApi.declineProofRequest(requestId, reason);
+    const res = await api.post(`/holder/proof-requests/${requestId}/decline`, { reason });
+    return res.data;
+  },
+
   createPresentation: async (presentationData) => {
     if (MOCK_MODE) return await mockHolderApi.createPresentation(presentationData);
     const res = await api.post("/holder/presentations", presentationData);

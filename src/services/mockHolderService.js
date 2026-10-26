@@ -51,26 +51,58 @@ let MOCK_CREDENTIALS = [
 let MOCK_CONNECTIONS = [
   {
     id: "conn-holder-1",
-    peerDid: "did:example:issuer1",
-    peerName: "C-DAC Credential Issuer",
-    alias: "University Authority",
+    connection_id: "conn-holder-1",
+    their_label: "State University Academic Registry",
+    peerName: "State University Academic Registry",
+    their_did: "did:example:university-registry-01",
+    peerDid: "did:example:university-registry-01",
+    role: "Issuer",
     status: "active",
+    state: "active",
     createdAt: "2024-05-01T10:00:00Z",
   },
   {
     id: "conn-holder-2",
-    peerDid: "did:example:verifier1",
-    peerName: "FinTech Compliance Verifier",
-    alias: "KYC Compliance Hub",
+    connection_id: "conn-holder-2",
+    their_label: "C-DAC Identity & Trust Authority",
+    peerName: "C-DAC Identity & Trust Authority",
+    their_did: "did:example:cdac-authority-892",
+    peerDid: "did:example:cdac-authority-892",
+    role: "Issuer",
     status: "active",
+    state: "active",
+    createdAt: "2024-05-03T11:20:00Z",
+  },
+  {
+    id: "conn-holder-3",
+    connection_id: "conn-holder-3",
+    their_label: "FinTech Compliance & KYC Hub",
+    peerName: "FinTech Compliance & KYC Hub",
+    their_did: "did:example:fintech-kyc-verifier-44",
+    peerDid: "did:example:fintech-kyc-verifier-44",
+    role: "Verifier",
+    status: "active",
+    state: "active",
     createdAt: "2024-05-05T14:30:00Z",
+  },
+  {
+    id: "conn-holder-4",
+    connection_id: "conn-holder-4",
+    their_label: "National Employment & Skill Verifier",
+    peerName: "National Employment & Skill Verifier",
+    their_did: "did:example:employment-verifier-71",
+    peerDid: "did:example:employment-verifier-71",
+    role: "Verifier",
+    status: "active",
+    state: "active",
+    createdAt: "2024-05-08T09:15:00Z",
   },
 ];
 
 let MOCK_OFFERS = [
   {
     id: "offer-emp-1",
-    senderDid: "did:example:issuer1",
+    senderDid: "did:example:cdac-authority-892",
     senderName: "C-DAC Enterprise Issuer",
     credentialDefinition: "Corporate Employee ID",
     schemaId: "schema-emp-3",
@@ -80,6 +112,7 @@ let MOCK_OFFERS = [
       department: "Decentralized Systems",
       designation: "Security Architect",
       clearanceLevel: "Level 4 - National",
+      issuedDate: "2024-05-14",
     },
     comment: "Pre-approved corporate credential offer. Accept to store in your digital wallet.",
     createdAt: "2024-05-14T10:00:00Z",
@@ -89,16 +122,29 @@ let MOCK_OFFERS = [
 let MOCK_PROOF_REQUESTS = [
   {
     id: "pres-req-101",
-    verifierDid: "did:example:verifier1",
-    verifierName: "FinTech Compliance Verifier",
-    name: "Employment & Degree Verification",
+    verifierDid: "did:example:fintech-kyc-verifier-44",
+    verifierName: "FinTech Compliance & KYC Hub",
+    name: "Higher Education & Degree Verification",
+    purpose: "Mandatory qualification verification for security architect role onboarding.",
     requestedAttributes: ["studentName", "degreeType", "graduationYear"],
     requestedPredicates: [
       { name: "graduationYear", p_type: ">=", p_value: 2020 },
     ],
     status: "pending",
-    comment: "Required for senior identity auditor verification.",
+    comment: "Requires verification of accredited higher education degree qualification.",
     createdAt: "2024-05-14T09:00:00Z",
+  },
+  {
+    id: "pres-req-102",
+    verifierDid: "did:example:employment-verifier-71",
+    verifierName: "National Employment & Skill Verifier",
+    name: "Cyber Security Certification Check",
+    purpose: "Verification of enterprise cybersecurity credentials for platform trust validation.",
+    requestedAttributes: ["holderName", "certificateId", "securityLevel"],
+    requestedPredicates: [],
+    status: "pending",
+    comment: "Routine verification of valid technical certification.",
+    createdAt: "2024-05-15T11:30:00Z",
   },
 ];
 
@@ -161,24 +207,35 @@ export const mockHolderApi = {
     return { success: true, data: [...MOCK_PROOF_REQUESTS] };
   },
 
-  respondToProofRequest: async (requestId, { selectedCredId, revealedAttrs, predicates }) => {
+  respondToProofRequest: async (requestId, credentialsOrParams, presentation) => {
     const req = MOCK_PROOF_REQUESTS.find((r) => r.id === requestId);
     if (req) {
       req.status = "presented";
       MOCK_PROOF_REQUESTS = MOCK_PROOF_REQUESTS.filter((r) => r.id !== requestId);
     }
+    const revealedAttrs =
+      presentation?.revealedAttributes ||
+      credentialsOrParams?.revealedAttrs ||
+      credentialsOrParams?.revealedAttributes ||
+      {};
+    const satisfiedPredicates = presentation?.predicates || credentialsOrParams?.predicates || [];
     return {
       success: true,
       data: {
         presentationId: `pres-${Date.now().toString(36)}`,
         status: "verified",
         disclosedAttributes: revealedAttrs,
-        satisfiedPredicates: predicates,
+        satisfiedPredicates,
       },
     };
   },
 
   rejectProofRequest: async (requestId, reason) => {
+    MOCK_PROOF_REQUESTS = MOCK_PROOF_REQUESTS.filter((r) => r.id !== requestId);
+    return { success: true, reason };
+  },
+
+  declineProofRequest: async (requestId, reason) => {
     MOCK_PROOF_REQUESTS = MOCK_PROOF_REQUESTS.filter((r) => r.id !== requestId);
     return { success: true, reason };
   },

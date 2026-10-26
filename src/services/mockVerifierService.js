@@ -12,33 +12,47 @@
 let MOCK_VERIFIER_CONNECTIONS = [
   {
     connection_id: "conn-v-1",
-    their_label: "Alice Johnson (Holder)",
+    their_label: "Alice Johnson (Student Holder)",
     their_did: "did:sov:WRfXPg8EcRocfdZA69HP56",
-    my_did: "did:sov:VRF9988776655443322110",
+    my_did: "did:sov:V3RF81mC9w4qP2xT8Y",
     state: "active",
     rfc23_state: "completed",
     created_at: "2024-05-01T10:00:00Z",
     invitation_key: "VerKeyAliceHolder123==",
+    role: "Student",
   },
   {
     connection_id: "conn-v-2",
-    their_label: "Bob Smith (Holder)",
+    their_label: "Bob Smith (Corporate Employee)",
     their_did: "did:sov:TR5XPg8EcRocfdZA69HP99",
-    my_did: "did:sov:VRF9988776655443322110",
+    my_did: "did:sov:V3RF81mC9w4qP2xT8Y",
     state: "active",
     rfc23_state: "completed",
     created_at: "2024-05-10T14:30:00Z",
     invitation_key: "VerKeyBobSmith456==",
+    role: "Software Engineer",
   },
   {
     connection_id: "conn-v-3",
-    their_label: "Carol Davis (Holder)",
+    their_label: "Carol Davis (Government Officer)",
     their_did: "did:sov:CD99XPg8EcRocfdZA69HP11",
-    my_did: "did:sov:VRF9988776655443322110",
+    my_did: "did:sov:V3RF81mC9w4qP2xT8Y",
     state: "invitation-sent",
     rfc23_state: "invitation-sent",
     created_at: "2024-05-14T08:00:00Z",
     invitation_key: "VerKeyCarolDavis789==",
+    role: "Compliance Officer",
+  },
+  {
+    connection_id: "conn-v-4",
+    their_label: "David Miller (Contractor)",
+    their_did: "did:sov:DM88XPg8EcRocfdZA69HP44",
+    my_did: "did:sov:V3RF81mC9w4qP2xT8Y",
+    state: "active",
+    rfc23_state: "completed",
+    created_at: "2024-05-16T11:20:00Z",
+    invitation_key: "VerKeyDavidMiller012==",
+    role: "Security Consultant",
   },
 ];
 
@@ -47,6 +61,7 @@ let MOCK_PRESENTATIONS = [
     presentation_exchange_id: "pres-ex-001",
     connection_id: "conn-v-1",
     holder_name: "Alice Johnson",
+    holder_did: "did:sov:WRfXPg8EcRocfdZA69HP56",
     role: "verifier",
     name: "Identity & Age Verification",
     version: "1.0",
@@ -54,42 +69,54 @@ let MOCK_PRESENTATIONS = [
     verified: "false",
     created_at: "2024-05-14T10:00:00Z",
     updated_at: "2024-05-14T10:15:00Z",
+    completed_at: null,
     comment: "Verify candidate identity and age over 18 for background check",
     presentation_request: {
       name: "Proof of Identity & Age",
       version: "1.0",
       requested_attributes: {
-        attr_1: { name: "fullName" },
-        attr_2: { name: "email" },
+        attr_1: { name: "fullName", label: "Full Name" },
+        attr_2: { name: "email", label: "Email Address" },
       },
       requested_predicates: {
-        pred_1: { name: "age", p_type: ">=", p_value: 18 },
+        pred_1: { name: "age", p_type: ">=", p_value: 18, label: "Age >= 18" },
       },
+      restrictions: [
+        { schema_name: "National Identity / Age", issuer_did: "did:sov:M6Mbe3qx7vBQAitT21A2K1" },
+      ],
     },
     presentation: {
       requested_proof: {
         revealed_attrs: {
-          attr_1: { raw: "Alice Johnson", encoded: "1098273645" },
-          attr_2: { raw: "alice.johnson@example.com", encoded: "8877665544" },
+          attr_1: { label: "Full Name", raw: "Alice Johnson", encoded: "1098273645" },
+          attr_2: { label: "Email Address", raw: "alice.johnson@example.com", encoded: "8877665544" },
         },
         predicates: {
-          pred_1: { sub_proof_index: 0, satisfied: true, detail: "age >= 18 is cryptographically verified (ZKP)" },
+          pred_1: { label: "Age >= 18", satisfied: true, detail: "Age >= 18 cryptographically proven (ZKP - actual birthdate hidden)" },
         },
       },
       identifiers: [
         {
-          schema_id: "M6Mbe3qx7vBQAitT21A2K1:2:Citizen Identity:1.0",
+          schema_id: "M6Mbe3qx7vBQAitT21A2K1:2:National Identity:1.0",
           cred_def_id: "M6Mbe3qx7vBQAitT21A2K1:3:CL:12401:default",
           rev_reg_id: "M6Mbe3qx7vBQAitT21A2K1:4:CL_ACCUM:12401",
           timestamp: 1715681400,
         },
       ],
+      verification_checks: {
+        proof_valid: true,
+        schema_matched: true,
+        revocation_check: "passed",
+        predicates_satisfied: true,
+        summary: "Presentation received and ready for verifier validation. All mathematical proofs and cryptographic signatures are intact.",
+      },
     },
   },
   {
     presentation_exchange_id: "pres-ex-002",
     connection_id: "conn-v-2",
     holder_name: "Bob Smith",
+    holder_did: "did:sov:TR5XPg8EcRocfdZA69HP99",
     role: "verifier",
     name: "Academic Credentials Verification",
     version: "1.0",
@@ -97,27 +124,35 @@ let MOCK_PRESENTATIONS = [
     verified: "true",
     created_at: "2024-05-12T14:20:00Z",
     updated_at: "2024-05-12T14:45:00Z",
+    completed_at: "2024-05-12T14:45:00Z",
     comment: "Verification of Master degree in Computer Science",
     presentation_request: {
       name: "Degree Verification",
       version: "1.0",
       requested_attributes: {
-        attr_1: { name: "recipientName" },
-        attr_2: { name: "degree" },
-        attr_3: { name: "graduationYear" },
-        attr_4: { name: "gpa" },
+        attr_1: { name: "studentName", label: "Student Name" },
+        attr_2: { name: "degreeType", label: "Degree" },
+        attr_3: { name: "major", label: "Major / Specialization" },
+        attr_4: { name: "graduationYear", label: "Graduation Year" },
       },
-      requested_predicates: {},
+      requested_predicates: {
+        pred_1: { name: "gradeAverage", p_type: ">=", p_value: 3.5, label: "GPA >= 3.5" },
+      },
+      restrictions: [
+        { schema_name: "University Degree", issuer_did: "did:sov:M6Mbe3qx7vBQAitT21A2K1" },
+      ],
     },
     presentation: {
       requested_proof: {
         revealed_attrs: {
-          attr_1: { raw: "Bob Smith", encoded: "3847291823" },
-          attr_2: { raw: "Master of Science in Cybersecurity", encoded: "9988771122" },
-          attr_3: { raw: "2023", encoded: "2023" },
-          attr_4: { raw: "3.92", encoded: "392" },
+          attr_1: { label: "Student Name", raw: "Bob Smith", encoded: "3847291823" },
+          attr_2: { label: "Degree", raw: "Master of Science in Cybersecurity", encoded: "9988771122" },
+          attr_3: { label: "Major", raw: "Cybersecurity & Cryptography", encoded: "11223344" },
+          attr_4: { label: "Graduation Year", raw: "2023", encoded: "2023" },
         },
-        predicates: {},
+        predicates: {
+          pred_1: { label: "GPA >= 3.5", satisfied: true, detail: "Grade point average >= 3.5 verified via zero-knowledge predicate" },
+        },
       },
       identifiers: [
         {
@@ -126,12 +161,20 @@ let MOCK_PRESENTATIONS = [
           timestamp: 1715525100,
         },
       ],
+      verification_checks: {
+        proof_valid: true,
+        schema_matched: true,
+        revocation_check: "passed",
+        predicates_satisfied: true,
+        summary: "Cryptographic signature validated against University Issuer public key. Credential is active and non-revoked.",
+      },
     },
   },
   {
     presentation_exchange_id: "pres-ex-003",
     connection_id: "conn-v-1",
     holder_name: "Alice Johnson",
+    holder_did: "did:sov:WRfXPg8EcRocfdZA69HP56",
     role: "verifier",
     name: "Security Clearance Verification",
     version: "1.0",
@@ -139,63 +182,170 @@ let MOCK_PRESENTATIONS = [
     verified: "false",
     created_at: "2024-05-15T09:00:00Z",
     updated_at: "2024-05-15T09:00:00Z",
-    comment: "Requesting Level-3 clearance badge validation",
+    completed_at: null,
+    comment: "Requesting Level-3 clearance badge validation for facility access",
     presentation_request: {
       name: "Security Clearance Check",
       version: "1.0",
       requested_attributes: {
-        attr_1: { name: "clearanceLevel" },
-        attr_2: { name: "badgeId" },
+        attr_1: { name: "clearanceLevel", label: "Clearance Level" },
+        attr_2: { name: "badgeId", label: "Badge Identifier" },
       },
       requested_predicates: {},
+      restrictions: [],
     },
     presentation: null,
+  },
+  {
+    presentation_exchange_id: "pres-ex-004",
+    connection_id: "conn-v-4",
+    holder_name: "David Miller",
+    holder_did: "did:sov:DM88XPg8EcRocfdZA69HP44",
+    role: "verifier",
+    name: "Corporate Employment Verification",
+    version: "1.0",
+    state: "abandoned",
+    verified: "false",
+    created_at: "2024-05-11T12:00:00Z",
+    updated_at: "2024-05-11T15:30:00Z",
+    completed_at: "2024-05-11T15:30:00Z",
+    rejection_reason: "Holder declined verification request or requested attributes were missing from credential wallet",
+    comment: "Verification of current employer status and department",
+    presentation_request: {
+      name: "Employment Check",
+      version: "1.0",
+      requested_attributes: {
+        attr_1: { name: "fullName", label: "Full Name" },
+        attr_2: { name: "department", label: "Department" },
+        attr_3: { name: "designation", label: "Designation" },
+      },
+      requested_predicates: {},
+      restrictions: [],
+    },
+    presentation: null,
+  },
+  {
+    presentation_exchange_id: "pres-ex-005",
+    connection_id: "conn-v-2",
+    holder_name: "Bob Smith",
+    holder_did: "did:sov:TR5XPg8EcRocfdZA69HP99",
+    role: "verifier",
+    name: "Cyber Security Certification",
+    version: "1.0",
+    state: "verified",
+    verified: "true",
+    created_at: "2024-05-09T08:30:00Z",
+    updated_at: "2024-05-09T09:10:00Z",
+    completed_at: "2024-05-09T09:10:00Z",
+    comment: "Professional certification compliance check",
+    presentation_request: {
+      name: "Cyber Security Certificate Validation",
+      version: "1.0",
+      requested_attributes: {
+        attr_1: { name: "holderName", label: "Holder Name" },
+        attr_2: { name: "certificateId", label: "Certificate ID" },
+        attr_3: { name: "securityLevel", label: "Security Level" },
+      },
+      requested_predicates: {},
+      restrictions: [],
+    },
+    presentation: {
+      requested_proof: {
+        revealed_attrs: {
+          attr_1: { label: "Holder Name", raw: "Bob Smith", encoded: "3847291823" },
+          attr_2: { label: "Certificate ID", raw: "SEC-CERT-2024-998", encoded: "9982024" },
+          attr_3: { label: "Security Level", raw: "Level 3 - Expert", encoded: "3" },
+        },
+        predicates: {},
+      },
+      identifiers: [
+        {
+          schema_id: "M6Mbe3qx7vBQAitT21A2K1:2:Cyber Security Certification:1.0",
+          cred_def_id: "M6Mbe3qx7vBQAitT21A2K1:3:CL:12403:cert-2024",
+          timestamp: 1715243400,
+        },
+      ],
+      verification_checks: {
+        proof_valid: true,
+        schema_matched: true,
+        revocation_check: "passed",
+        predicates_satisfied: true,
+        summary: "Certificate signature confirmed by certifying body public key. Revocation status confirmed clear.",
+      },
+    },
   },
 ];
 
 export const mockVerifierApi = {
   /** Get all presentation records */
   getPresentations: async () => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 250));
     return { success: true, data: [...MOCK_PRESENTATIONS] };
   },
 
-  /** Get proof requests (alias for backwards compatibility) */
+  /** Get proof requests (formatted for verifier portal table) */
   getProofRequests: async () => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    // Transform presentation records into friendly proof request objects
-    const list = MOCK_PRESENTATIONS.map((p) => ({
-      id: p.presentation_exchange_id,
-      holderDid: p.connection_id,
-      holderName: p.holder_name,
-      requestedAttributes: Object.values(p.presentation_request?.requested_attributes || {}).map((a) => a.name),
-      status: p.verified === "true" ? "verified" : p.state === "presentation_received" ? "review" : "pending",
-      createdAt: p.created_at,
-      expiresAt: new Date(new Date(p.created_at).getTime() + 7 * 86400000).toISOString(),
-      raw: p,
-    }));
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    const list = MOCK_PRESENTATIONS.map((p) => {
+      const attrs = Object.values(p.presentation_request?.requested_attributes || {}).map(
+        (a) => a.label || a.name
+      );
+      const preds = Object.values(p.presentation_request?.requested_predicates || {}).map(
+        (pr) => pr.label || `${pr.name} ${pr.p_type} ${pr.p_value}`
+      );
+
+      let computedStatus = "awaiting_presentation";
+      if (p.verified === "true" || p.state === "verified") {
+        computedStatus = "verified";
+      } else if (p.state === "presentation_received") {
+        computedStatus = "presentation_received";
+      } else if (p.state === "abandoned" || p.state === "rejected") {
+        computedStatus = "rejected";
+      } else if (p.state === "failed") {
+        computedStatus = "failed";
+      }
+
+      return {
+        id: p.presentation_exchange_id,
+        presentation_exchange_id: p.presentation_exchange_id,
+        connection_id: p.connection_id,
+        holderName: p.holder_name,
+        holderDid: p.holder_did,
+        name: p.name,
+        title: p.name,
+        requestedAttributes: attrs,
+        requestedPredicates: preds,
+        status: computedStatus,
+        state: p.state,
+        verified: p.verified,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at,
+        completedAt: p.completed_at,
+        comment: p.comment,
+        rejectionReason: p.rejection_reason,
+        raw: p,
+      };
+    });
     return { success: true, data: list };
   },
 
   /** Create a new proof request with attributes and predicates */
   createProofRequest: async (requestData) => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 400));
     const newExId = `pres-ex-${Date.now().toString().slice(-4)}`;
     
-    // Support either old signature (attributes, holderConnection) or new object signature
-    const connectionId = requestData.connectionId || requestData.holderConnection?.id || "conn-v-1";
+    const connectionId = requestData.connectionId || "conn-v-1";
     const conn = MOCK_VERIFIER_CONNECTIONS.find((c) => c.connection_id === connectionId) || {
-      their_label: requestData.holderConnection?.holderName || "Peer Holder",
+      their_label: requestData.holderName || "Connected Holder",
+      their_did: "did:sov:WRfXPg8EcRocfdZA69HP56",
     };
 
     let requestedAttrs = {};
-    if (Array.isArray(requestData.attributes)) {
-      requestData.attributes.forEach((attr, idx) => {
-        requestedAttrs[`attr_${idx + 1}`] = { name: attr };
-      });
-    } else if (Array.isArray(requestData.requestedAttributes)) {
+    if (Array.isArray(requestData.requestedAttributes)) {
       requestData.requestedAttributes.forEach((attr, idx) => {
-        requestedAttrs[`attr_${idx + 1}`] = { name: attr };
+        const attrName = typeof attr === "string" ? attr : attr.name;
+        const attrLabel = typeof attr === "string" ? attr : attr.label || attr.name;
+        requestedAttrs[`attr_${idx + 1}`] = { name: attrName, label: attrLabel };
       });
     }
 
@@ -206,6 +356,7 @@ export const mockVerifierApi = {
           name: p.name,
           p_type: p.p_type || ">=",
           p_value: Number(p.p_value) || 18,
+          label: p.label || `${p.name} ${p.p_type || ">="} ${p.p_value}`,
         };
       });
     }
@@ -213,7 +364,8 @@ export const mockVerifierApi = {
     const newRecord = {
       presentation_exchange_id: newExId,
       connection_id: connectionId,
-      holder_name: conn.their_label.replace(" (Holder)", ""),
+      holder_name: conn.their_label.replace(/\s*\(.*?\)/, "").trim(),
+      holder_did: conn.their_did,
       role: "verifier",
       name: requestData.name || "Custom Proof Request",
       version: requestData.version || "1.0",
@@ -221,12 +373,14 @@ export const mockVerifierApi = {
       verified: "false",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      comment: requestData.comment || "Proof verification requested via portal",
+      completed_at: null,
+      comment: requestData.comment || "Proof verification requested via verifier portal",
       presentation_request: {
         name: requestData.name || "Custom Proof Request",
-        version: requestData.version || "1.0",
+        version: "1.0",
         requested_attributes: requestedAttrs,
         requested_predicates: requestedPreds,
+        restrictions: requestData.restrictions || [],
       },
       presentation: null,
     };
@@ -237,7 +391,7 @@ export const mockVerifierApi = {
 
   /** Verify / approve received presentation record */
   verifyPresentation: async (presentationExchangeId) => {
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    await new Promise((resolve) => setTimeout(resolve, 500));
     const record = MOCK_PRESENTATIONS.find((p) => p.presentation_exchange_id === presentationExchangeId);
     if (!record) {
       return { success: false, message: "Presentation record not found" };
@@ -246,6 +400,16 @@ export const mockVerifierApi = {
     record.state = "verified";
     record.verified = "true";
     record.updated_at = new Date().toISOString();
+    record.completed_at = record.updated_at;
+    if (record.presentation) {
+      record.presentation.verification_checks = {
+        proof_valid: true,
+        schema_matched: true,
+        revocation_check: "passed",
+        predicates_satisfied: true,
+        summary: "Cryptographic signature validated against issuer ledger anchor. Credential is active and non-revoked.",
+      };
+    }
 
     return {
       success: true,
@@ -266,6 +430,7 @@ export const mockVerifierApi = {
       record.verified = "false";
       record.rejection_reason = reason;
       record.updated_at = new Date().toISOString();
+      record.completed_at = record.updated_at;
     }
     return { success: true, data: record };
   },
@@ -286,7 +451,7 @@ export const mockVerifierApi = {
     }
     const revealedClaims = {};
     if (record.presentation?.requested_proof?.revealed_attrs) {
-      Object.entries(record.presentation.requested_proof.revealed_attrs).forEach(([_, val]) => {
+      Object.values(record.presentation.requested_proof.revealed_attrs).forEach((val) => {
         revealedClaims[val.raw] = val.raw;
       });
     }
@@ -317,7 +482,7 @@ export const mockVerifierApi = {
       connection_id: invId,
       their_label: alias,
       their_did: "did:sov:PendingPeerDid" + Math.floor(Math.random() * 9000 + 1000),
-      my_did: "did:sov:VRF9988776655443322110",
+      my_did: "did:sov:V3RF81mC9w4qP2xT8Y",
       state: "invitation-sent",
       rfc23_state: "invitation-sent",
       created_at: new Date().toISOString(),
@@ -332,9 +497,9 @@ export const mockVerifierApi = {
     await new Promise((resolve) => setTimeout(resolve, 500));
     const newConn = {
       connection_id: `conn-v-${Date.now().toString().slice(-4)}`,
-      their_label: invitationPayload.alias || "External Holder Peer",
+      their_label: invitationPayload.alias || "New Holder Connection",
       their_did: "did:sov:PeerHolder" + Math.floor(Math.random() * 9000 + 1000),
-      my_did: "did:sov:VRF9988776655443322110",
+      my_did: "did:sov:V3RF81mC9w4qP2xT8Y",
       state: "active",
       rfc23_state: "completed",
       created_at: new Date().toISOString(),

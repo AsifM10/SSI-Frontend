@@ -1,10 +1,8 @@
 import {
   HomeOutlined,
-  UserOutlined,
   EyeOutlined,
   UsergroupAddOutlined,
   ApiOutlined,
-  FileOutlined,
   ClockCircleOutlined,
   SettingOutlined,
   InfoOutlined,
@@ -46,24 +44,13 @@ const Sidebar = ({ collapsed, role }) => {
 
   if (isHolder) {
     navigationSections.push({
-      title: "Core",
+      title: "Digital Wallet",
       items: [
         { key: "holder-dashboard", path: "/holder-dashboard", icon: HomeOutlined, label: "Overview" },
-      ],
-    });
-    navigationSections.push({
-      title: "Credentials",
-      items: [
         { key: "holder-credentials", path: "/holder-credentials", icon: WalletOutlined, label: "My Credentials" },
         { key: "holder-offers", path: "/holder-offers", icon: ApiOutlined, label: "Credential Offers" },
-      ],
-    });
-    navigationSections.push({
-      title: "Peer & Proofs",
-      items: [
-        { key: "holder-proofs", path: "/holder-proofs", icon: EyeOutlined, label: "Proof Inquiries" },
+        { key: "holder-proof-requests", path: "/holder-proof-requests", icon: EyeOutlined, label: "Proof Requests" },
         { key: "holder-connections", path: "/holder-connections", icon: UsergroupAddOutlined, label: "Connections" },
-        { key: "holder-my-identity", path: "/holder-my-identity", icon: UserOutlined, label: "Identity Keys" },
       ],
     });
   }
@@ -79,7 +66,8 @@ const Sidebar = ({ collapsed, role }) => {
       title: "Proofs & Verification",
       items: [
         { key: "verifier-proof-requests", path: "/verifier-proof-requests", icon: EyeOutlined, label: "Proof Requests" },
-        { key: "verifier-connections", path: "/verifier-connections", icon: UsergroupAddOutlined, label: "Holder Peers" },
+        { key: "verifier-history", path: "/verifier-history", icon: AuditOutlined, label: "Verification History" },
+        { key: "verifier-connections", path: "/verifier-connections", icon: UsergroupAddOutlined, label: "Holder Connections" },
       ],
     });
   }
