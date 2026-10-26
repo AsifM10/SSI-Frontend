@@ -1,158 +1,166 @@
 import {
   HomeOutlined,
-  ApartmentOutlined,
-  AlertOutlined,
-  BarChartOutlined,
-  FileTextOutlined,
   UserOutlined,
+  EyeOutlined,
+  UsergroupAddOutlined,
+  ApiOutlined,
+  FileOutlined,
+  ClockCircleOutlined,
+  SettingOutlined,
+  InfoOutlined,
+  SafetyCertificateOutlined,
+  AuditOutlined,
+  WalletOutlined,
 } from "@ant-design/icons";
-
 import { NavLink } from "react-router-dom";
-import { useSelector } from "react-redux";
-import { useState, useEffect } from "react";
-import { selectUser } from "../../store/slices/authSlice";
-import { getProjectsForUser } from "../../services/projectService";
-import SarvekshanMonitor from "../../assets/sarvekshan_monitor.png";
-
+import { useAuth } from "../../context/AuthContext";
 import "./Sidebar.css";
 
-const Sidebar = ({ collapsed }) => {
-  const user = useSelector(selectUser) || {};
-  const canViewReports =
-    user.role === "CENTRAL_ADMIN" || user.role === "DEPT_ADMIN";
+const Sidebar = ({ collapsed, role }) => {
+  const { user } = useAuth();
 
-  const isDeptUser = user.role === "DEPT_ADMIN" || user.role === "DEPT_VIEWER";
+  const currentRole = role || user?.role || "issuer";
+  const isIssuer = currentRole === "issuer";
+  const isHolder = currentRole === "holder";
+  const isVerifier = currentRole === "verifier";
+  const isAdmin = currentRole === "admin";
 
-  // Dept users land directly on their department's project list,
-  // while central users see the full departments overview.
-  const departmentsTo =
-    isDeptUser && user.deptId ? `/departments/${user.deptId}` : "/departments";
-  const departmentsLabel = isDeptUser ? "Projects" : "Departments";
+  const navigationSections = [];
 
-  const [fallbackProjectId, setFallbackProjectId] = useState(null);
+  if (isIssuer) {
+    navigationSections.push({
+      title: "Core",
+      items: [
+        { key: "issuer-dashboard", path: "/issuer-dashboard", icon: HomeOutlined, label: "Overview" },
+      ],
+    });
+    navigationSections.push({
+      title: "Credentials & Issuance",
+      items: [
+        { key: "issuer-schemas", path: "/issuer-schemas", icon: ApiOutlined, label: "Schemas" },
+        { key: "issuer-connections", path: "/issuer-connections", icon: UsergroupAddOutlined, label: "Connections" },
+        { key: "issuer-issuance", path: "/issuer-issuance", icon: ClockCircleOutlined, label: "Issuance History" },
+      ],
+    });
+  }
 
-  const lastProject = localStorage.getItem("lastMonitoringProject");
-  const lastProjectValid =
-    lastProject &&
-    lastProject !== "undefined" &&
-    lastProject !== "null" &&
-    !Number.isNaN(Number(lastProject));
+  if (isHolder) {
+    navigationSections.push({
+      title: "Core",
+      items: [
+        { key: "holder-dashboard", path: "/holder-dashboard", icon: HomeOutlined, label: "Overview" },
+      ],
+    });
+    navigationSections.push({
+      title: "Credentials",
+      items: [
+        { key: "holder-credentials", path: "/holder-credentials", icon: WalletOutlined, label: "My Credentials" },
+        { key: "holder-offers", path: "/holder-offers", icon: ApiOutlined, label: "Credential Offers" },
+      ],
+    });
+    navigationSections.push({
+      title: "Peer & Proofs",
+      items: [
+        { key: "holder-proofs", path: "/holder-proofs", icon: EyeOutlined, label: "Proof Inquiries" },
+        { key: "holder-connections", path: "/holder-connections", icon: UsergroupAddOutlined, label: "Connections" },
+        { key: "holder-my-identity", path: "/holder-my-identity", icon: UserOutlined, label: "Identity Keys" },
+      ],
+    });
+  }
 
-  useEffect(() => {
-    if (lastProjectValid) return;
+  if (isVerifier) {
+    navigationSections.push({
+      title: "Core",
+      items: [
+        { key: "verifier-dashboard", path: "/verifier-dashboard", icon: HomeOutlined, label: "Overview" },
+      ],
+    });
+    navigationSections.push({
+      title: "Proofs & Verification",
+      items: [
+        { key: "verifier-proof-requests", path: "/verifier-proof-requests", icon: EyeOutlined, label: "Proof Requests" },
+        { key: "verifier-connections", path: "/verifier-connections", icon: UsergroupAddOutlined, label: "Holder Peers" },
+      ],
+    });
+  }
 
-    let cancelled = false;
-    const loadDefaultProject = async () => {
-      try {
-        const data = await getProjectsForUser(user);
-        if (!cancelled && data && data.length > 0) {
-          const withMachines = data.find(
-            (p) => Number(p.machineCount) > 0
-          );
-          const firstProjectId = (withMachines || data[0]).projectId;
-          setFallbackProjectId(firstProjectId);
-          localStorage.setItem("lastMonitoringProject", firstProjectId);
-        }
-      } catch (err) {
-        console.error("Failed to resolve default monitoring project:", err);
-      }
-    };
-    loadDefaultProject();
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
+  if (isAdmin) {
+    navigationSections.push({
+      title: "Core",
+      items: [
+        { key: "admin-dashboard", path: "/admin-dashboard", icon: HomeOutlined, label: "Overview" },
+      ],
+    });
+    navigationSections.push({
+      title: "Governance",
+      items: [
+        { key: "admin-users", path: "/admin-users", icon: UsergroupAddOutlined, label: "User Accounts" },
+      ],
+    });
+    navigationSections.push({
+      title: "Infrastructure",
+      items: [
+        { key: "admin-system", path: "/admin-system", icon: SettingOutlined, label: "Node Telemetry" },
+        { key: "admin-audit", path: "/admin-audit", icon: InfoOutlined, label: "Audit Logs" },
+      ],
+    });
+  }
 
-  const monitoringProjectId = lastProjectValid ? lastProject : fallbackProjectId;
-  const monitoringTo = monitoringProjectId
-    ? `/monitoring/${monitoringProjectId}`
-    : "/departments";
   return (
     <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
       <div className="sidebar-top">
+        {/* Brand Logo Header */}
         <div className="sidebar-logo">
           <div className="logo-icon">
-            <img src={SarvekshanMonitor} alt="Sarvekshan" />
+            <SafetyCertificateOutlined style={{ fontSize: 22, color: "#FFFFFF" }} />
           </div>
-
           {!collapsed && (
             <div>
-              <h2>SARVEKSHAN</h2>
-              <p>MONITORING</p>
+              <div className="sidebar-brand-title">
+                SSI <span>Portal</span>
+              </div>
+              <p className="sidebar-brand-subtitle">CDAC Framework</p>
             </div>
           )}
         </div>
 
+        {/* Navigation Sections */}
         <div className="sidebar-menu">
-          <NavLink
-            to="/dashboard"
-            end
-            className={({ isActive }) =>
-              `sidebar-menu-item ${isActive ? "active" : ""}`
-            }
-            style={{ '--item-accent': '#4F46E5' }}
-          >
-            <HomeOutlined />
-            {!collapsed && <span>Dashboard</span>}
-          </NavLink>
-
-          <NavLink
-            to={departmentsTo}
-            className={({ isActive }) =>
-              `sidebar-menu-item ${isActive ? "active" : ""}`
-            }
-            style={{ '--item-accent': '#F59E0B' }}
-          >
-            <ApartmentOutlined />
-            {!collapsed && <span>{departmentsLabel}</span>}
-          </NavLink>
-
-          <NavLink
-            to={monitoringTo}
-            className={({ isActive }) =>
-              `sidebar-menu-item ${isActive ? "active" : ""}`
-            }
-            style={{ '--item-accent': '#10B981' }}
-          >
-            <BarChartOutlined />
-            {!collapsed && <span>Monitoring</span>}
-          </NavLink>
-
-          {canViewReports && (
-            <NavLink
-              to="/reports"
-              className={({ isActive }) =>
-                `sidebar-menu-item ${isActive ? "active" : ""}`
-              }
-              style={{ '--item-accent': '#06B6D4' }}
-            >
-              <FileTextOutlined />
-              {!collapsed && <span>Reports</span>}
-            </NavLink>
-          )}
-
-          <NavLink
-            to="/alerts"
-            className={({ isActive }) =>
-              `sidebar-menu-item ${isActive ? "active" : ""}`
-            }
-            style={{ '--item-accent': '#F43F5E' }}
-          >
-            <AlertOutlined />
-            {!collapsed && <span>Alerts</span>}
-          </NavLink>
-
-          <NavLink
-            to="/users"
-            className={({ isActive }) =>
-              `sidebar-menu-item ${isActive ? "active" : ""}`
-            }
-            style={{ '--item-accent': '#8B5CF6' }}
-          >
-            <UserOutlined />
-            {!collapsed && <span>Users</span>}
-          </NavLink>
+          {navigationSections.map((section, idx) => (
+            <div key={idx} className="sidebar-section">
+              {!collapsed && (
+                <div className="sidebar-section-title">{section.title}</div>
+              )}
+              {section.items.map((item) => (
+                <NavLink
+                  key={item.key}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `sidebar-menu-item ${isActive ? "active" : ""}`
+                  }
+                  title={collapsed ? item.label : ""}
+                >
+                  <item.icon className="sidebar-item-icon" />
+                  {!collapsed && <span className="sidebar-item-label">{item.label}</span>}
+                </NavLink>
+              ))}
+            </div>
+          ))}
         </div>
+      </div>
+
+      {/* Bottom Node Status */}
+      <div className="sidebar-footer">
+        {!collapsed ? (
+          <div className="sidebar-node-status">
+            <span className="node-ping-dot" />
+            <span className="node-status-text">Ledger Node: Active</span>
+          </div>
+        ) : (
+          <div className="sidebar-node-status" style={{ justifyContent: "center" }} title="Ledger Node: Active">
+            <span className="node-ping-dot" />
+          </div>
+        )}
       </div>
     </aside>
   );

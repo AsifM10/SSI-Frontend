@@ -1,0 +1,113 @@
+.trust-diagram-wrapper {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.trust-diagram-svg {
+  width: 100%;
+  height: auto;
+  max-height: 310px;
+  overflow: visible;
+}
+
+/* Subtle Floating Animations */
+@keyframes nodeFloat1 {
+  0%, 100% {
+    transform: translate(95px, 45px);
+  }
+  50% {
+    transform: translate(95px, 41px);
+  }
+}
+
+@keyframes nodeFloat2 {
+  0%, 100% {
+    transform: translate(385px, 45px);
+  }
+  50% {
+    transform: translate(385px, 41px);
+  }
+}
+
+@keyframes nodeFloat3 {
+  0%, 100% {
+    transform: translate(100px, 215px);
+  }
+  50% {
+    transform: translate(100px, 219px);
+  }
+}
+
+@keyframes nodeFloat4 {
+  0%, 100% {
+    transform: translate(380px, 215px);
+  }
+  50% {
+    transform: translate(380px, 211px);
+  }
+}
+
+@keyframes shieldPulse {
+  0%, 100% {
+    transform: translate(254px, 126px);
+  }
+  50% {
+    transform: translate(254px, 122px);
+  }
+}
+
+@keyframes dotPulse {
+  0%, 100% {
+    opacity: 0.4;
+    r: 2.5;
+  }
+  50% {
+    opacity: 1;
+    r: 4;
+  }
+}
+
+.node-issuer {
+  animation: nodeFloat1 5s ease-in-out infinite;
+  transition: transform 0.2s ease;
+}
+
+.node-holder {
+  animation: nodeFloat2 5.5s ease-in-out infinite;
+  transition: transform 0.2s ease;
+}
+
+.node-verifier {
+  animation: nodeFloat3 6s ease-in-out infinite;
+  transition: transform 0.2s ease;
+}
+
+.node-admin {
+  animation: nodeFloat4 4.8s ease-in-out infinite;
+  transition: transform 0.2s ease;
+}
+
+.center-shield-glow {
+  animation: shieldPulse 4s ease-in-out infinite;
+}
+
+.pulse-dot {
+  animation: dotPulse 2s ease-in-out infinite;
+}
+
+/* Active & Interactive Node Styles */
+.floating-node {
+  transition: all 0.2s ease;
+}
+
+.floating-node:hover {
+  filter: drop-shadow(0 8px 16px rgba(37, 99, 235, 0.2));
+}
+
+.floating-node.is-active {
+  filter: drop-shadow(0 10px 20px rgba(37, 99, 235, 0.35));
+}

@@ -34,13 +34,17 @@ const StatCard = ({ title, value, label, sub, accent }) => {
   }, [value]);
 
   return (
-    <div className="stat-card">
+    <div
+      className="stat-card"
+      style={{
+        "--stat-bg": accent?.bg,
+        "--stat-color": accent?.color,
+        "--stat-grad": accent?.grad,
+      }}
+    >
       <span className="stat-card-shine" />
-      <div
-        className="stat-card-icon"
-        style={{ "--stat-bg": accent.bg, "--stat-color": accent.color, "--stat-grad": accent.grad }}
-      >
-        {accent.icon}
+      <div className="stat-card-icon">
+        {accent?.icon}
       </div>
       <div className="stat-card-content">
         <span className="stat-card-title">{title}</span>

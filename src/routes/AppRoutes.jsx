@@ -1,299 +1,203 @@
-// import { BrowserRouter, Routes, Route } from "react-router-dom";
-
-// import ProjectDetails from "../pages/ProjectDetails/ProjectDetails";
-// import Dashboard from "../pages/Dashboard/Dashboard";
-// import Login from "../pages/Login/Login";
-// import Register from "../pages/Register/Register";
-// import DepartmentDetails from "../pages/DepartmentDetails/DepartmentDetails";
-// import MonitoringDetails from "../pages/MonitoringDetails/MonitoringDetails";
-// import CpuPage from "../pages/Monitoring/CPU/CpuPage";
-// import GpuPage from "../pages/Monitoring/GPU/GpuPage";
-// import MemoryPage from "../pages/Monitoring/Memory/MemoryPage";
-// import StoragePage from "../pages/Monitoring/Storage/StoragePage";
-// import PowerPage from "../pages/Monitoring/Power/PowerPage";
-// import CarbonPage from "../pages/Monitoring/Carbon/CarbonPage";
-// import CarbonEmissionPage from "../pages/Monitoring/CarbonEmission/CarbonEmissionPage";
-// import Alerts from "../pages/Alerts/Alerts";
-// import User from "../pages/Users/Users";
-// import Reports from "../pages/Reports/Reports";
-// // import DepartmentAdmin from "../pages/DepartmentAdmin/DepartmentAdminList";
-// import DepartmentViewerView from "../pages/DepartmentViewer/DepartmentViewerView";
-// import CreateDepartmentViewer from "../pages/DepartmentViewer/CreateDepartmentViewer";
-// import DepartmentAdminView from "../pages/DepartmentAdmin/DepartmentAdminView";
-
-// import CentralViewerView from "../pages/CentralViewer/CentralViewerView";
-// //import DepartmentViewOnly from "../pages/DepartmentViewOnly/DepartmentViewOnly";
-
-
-// export default function AppRoutes() {
-//   return (
-//     <BrowserRouter>
-//       <Routes>
-//         <Route path="/dashboard" element={<Dashboard />} />
-//         {/* <Route path="/monitoring" element={<Dashboard />} /> */}
-//         <Route path="/projects/:projectId" element={<ProjectDetails />} />
-//         <Route path="/register" element={<Register />} />
-//         <Route path="/" element={<Login />} />
-//         <Route path="/departments/:departmentCode" element={<DepartmentDetails />} />
-//         <Route path="/monitoring/:projectId" element={<MonitoringDetails />} />
-//         <Route path="/monitoring/:projectId/cpu" element={<CpuPage />} />
-//         <Route path="/monitoring/:projectId/gpu" element={<GpuPage />} />
-//         <Route path="/monitoring/:projectId/memory" element={<MemoryPage />} />
-//         <Route path="/monitoring/:projectId/storage" element={<StoragePage />} />
-//         <Route path="/monitoring/:projectId/power" element={<PowerPage />} />
-
-//         <Route path="/monitoring/:projectId/carbon" element={<CarbonPage />} />
-
-//         <Route path="/reports" element={<Reports />} />
-//         <Route path="/alerts" element={<Alerts />} />
-//         <Route path="/users" element={<User />} />
-//         <Route path="/departmentViewerView" element={<DepartmentViewerView />} />
-//         <Route path="/createDepartmentViewer" element={<CreateDepartmentViewer />} />
-//         <Route path="/departmentAdminView" element={<DepartmentAdminView />} />
-
-//         <Route path="/centralviewerView" element={<CentralViewerView />} />
-//         {/* <Route path="/DepartmentViewOnly" element={<DepartmentViewOnly />} /> */}
-
-//       </Routes>
-//     </BrowserRouter>
-//   );
-// }
-
-
-
-//new code with D-
-
-
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-
-import ProjectDetails from "../pages/ProjectDetails/ProjectDetails";
-import Dashboard from "../pages/Dashboard/Dashboard";
-import Login from "../pages/Login/Login";
-import Register from "../pages/Register/Register";
-import DepartmentDetails from "../pages/DepartmentDetails/DepartmentDetails";
-import Departments from "../pages/Departments/Departments";
-import ProjectMachines from "../pages/ProjectMachines/ProjectMachines";
-import MonitoringDetails from "../pages/MonitoringDetails/MonitoringDetails";
-import CpuPage from "../pages/Monitoring/CPU/CpuPage";
-import GpuPage from "../pages/Monitoring/GPU/GpuPage";
-import MemoryPage from "../pages/Monitoring/Memory/MemoryPage";
-import StoragePage from "../pages/Monitoring/Storage/StoragePage";
-import PowerPage from "../pages/Monitoring/Power/PowerPage";
-import CarbonPage from "../pages/Monitoring/Carbon/CarbonPage";
-import Alerts from "../pages/Alerts/Alerts";
-import User from "../pages/Users/Users";
-import UserProfile from "../pages/UserProfile/UserProfile";
-import Reports from "../pages/Reports/Reports";
-
-import DepartmentViewerView from "../pages/DepartmentViewer/DepartmentViewerView";
-import CreateDepartmentViewer from "../pages/DepartmentViewer/CreateDepartmentViewer";
-import DepartmentAdminView from "../pages/DepartmentAdmin/DepartmentAdminView";
-import CentralViewerView from "../pages/CentralViewer/CentralViewerView";
-
-
-import ProtectedRoute from "./ProtectedRoute";
-import RoleRoute from "./RoleRoute";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import RoleGuard from "./RoleGuard";
+import Home from "../pages/Home/Home";
+import RoleSelection from "../pages/RoleSelection/RoleSelection";
+import LoginPage from "../pages/LoginPage/LoginPage";
+import CheckStatus from "../pages/CheckStatus/CheckStatus";
+import IssuerDashboard from "../pages/IssuerDashboard/IssuerDashboard";
+import HolderDashboard from "../pages/HolderDashboard/HolderDashboard";
+import VerifierDashboard from "../pages/VerifierDashboard/VerifierDashboard";
+import AdminDashboard from "../pages/AdminDashboard/AdminDashboard";
 
 export default function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* ========================= */}
+        {/* Public Routes             */}
+        {/* ========================= */}
+        <Route path="/" element={<Home />} />
+        <Route path="/role-selection" element={<RoleSelection />} />
+        <Route path="/check-status" element={<CheckStatus />} />
+
+        {/* Public Login Routes (Role specific & unified) */}
+        <Route path="/login" element={<LoginPage role="issuer" />} />
+        <Route path="/select-role" element={<LoginPage role="issuer" />} />
+        <Route path="/login/issuer" element={<LoginPage key="issuer" role="issuer" />} />
+        <Route path="/login/holder" element={<LoginPage key="holder" role="holder" />} />
+        <Route path="/login/verifier" element={<LoginPage key="verifier" role="verifier" />} />
+        <Route path="/login/admin" element={<LoginPage key="admin" role="admin" />} />
+        <Route path="/login/:role" element={<LoginPage />} />
+
+        {/* Public Register Routes */}
+        <Route path="/register" element={<LoginPage initialMode="register" role="issuer" />} />
+        <Route path="/register/issuer" element={<LoginPage key="reg-issuer" initialMode="register" role="issuer" />} />
+        <Route path="/register/holder" element={<LoginPage key="reg-holder" initialMode="register" role="holder" />} />
+        <Route path="/register/verifier" element={<LoginPage key="reg-verifier" initialMode="register" role="verifier" />} />
+        <Route path="/register/:role" element={<LoginPage initialMode="register" />} />
 
         {/* ========================= */}
-        {/* Public Routes */}
+        {/* Issuer Role Routes        */}
         {/* ========================= */}
-
-        <Route path="/" element={<Login />} />
-
-        <Route path="/register" element={<Register />} />
-        
+        <Route
+          path="/issuer-dashboard"
+          element={
+            <RoleGuard allowedRoles={["issuer"]}>
+              <IssuerDashboard activeTab="dashboard" />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/issuer-schemas"
+          element={
+            <RoleGuard allowedRoles={["issuer"]}>
+              <IssuerDashboard activeTab="schemas" />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/issuer-did"
+          element={<Navigate to="/issuer-dashboard" replace />}
+        />
+        <Route
+          path="/issuer-credentials"
+          element={<Navigate to="/issuer-schemas" replace />}
+        />
+        <Route
+          path="/issuer-connections"
+          element={
+            <RoleGuard allowedRoles={["issuer"]}>
+              <IssuerDashboard activeTab="connections" />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/issuer-issuance"
+          element={
+            <RoleGuard allowedRoles={["issuer"]}>
+              <IssuerDashboard activeTab="issuance" />
+            </RoleGuard>
+          }
+        />
 
         {/* ========================= */}
-        {/* Protected Routes */}
+        {/* Holder Role Routes        */}
         {/* ========================= */}
-
         <Route
-          path="/dashboard"
+          path="/holder-dashboard"
           element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
+            <RoleGuard allowedRoles={["holder"]}>
+              <HolderDashboard activeTab="dashboard" />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/holder-connections"
+          element={
+            <RoleGuard allowedRoles={["holder"]}>
+              <HolderDashboard activeTab="connections" />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/holder-my-identity"
+          element={
+            <RoleGuard allowedRoles={["holder"]}>
+              <HolderDashboard activeTab="identity" />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/holder-credentials"
+          element={
+            <RoleGuard allowedRoles={["holder"]}>
+              <HolderDashboard activeTab="credentials" />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/holder-offers"
+          element={
+            <RoleGuard allowedRoles={["holder"]}>
+              <HolderDashboard activeTab="offers" />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/holder-proofs"
+          element={
+            <RoleGuard allowedRoles={["holder"]}>
+              <HolderDashboard activeTab="proofs" />
+            </RoleGuard>
           }
         />
 
+        {/* ========================= */}
+        {/* Verifier Role Routes      */}
+        {/* ========================= */}
         <Route
-          path="/projects/:projectId"
+          path="/verifier-dashboard"
           element={
-            <ProtectedRoute>
-              <ProjectDetails />
-            </ProtectedRoute>
+            <RoleGuard allowedRoles={["verifier"]}>
+              <VerifierDashboard activeTab="dashboard" />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/verifier-connections"
+          element={
+            <RoleGuard allowedRoles={["verifier"]}>
+              <VerifierDashboard activeTab="connections" />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/verifier-proof-requests"
+          element={
+            <RoleGuard allowedRoles={["verifier"]}>
+              <VerifierDashboard activeTab="proof-requests" />
+            </RoleGuard>
           }
         />
 
+        {/* ========================= */}
+        {/* Admin Role Routes         */}
+        {/* ========================= */}
         <Route
-          path="/departments"
+          path="/admin-dashboard"
           element={
-            <ProtectedRoute>
-              <Departments />
-            </ProtectedRoute>
+            <RoleGuard allowedRoles={["admin"]}>
+              <AdminDashboard activeTab="dashboard" />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/admin-users"
+          element={
+            <RoleGuard allowedRoles={["admin"]}>
+              <AdminDashboard activeTab="users" />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/admin-system"
+          element={
+            <RoleGuard allowedRoles={["admin"]}>
+              <AdminDashboard activeTab="system" />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/admin-audit"
+          element={
+            <RoleGuard allowedRoles={["admin"]}>
+              <AdminDashboard activeTab="audit" />
+            </RoleGuard>
           }
         />
 
-        <Route
-          path="/departments/:departmentCode"
-          element={
-            <ProtectedRoute>
-              <DepartmentDetails />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/machines/:projectId"
-          element={
-            <ProtectedRoute>
-              <ProjectMachines />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/monitoring/:projectId"
-          element={
-            <ProtectedRoute>
-              <MonitoringDetails />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/monitoring/:projectId/cpu"
-          element={
-            <ProtectedRoute>
-              <CpuPage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/monitoring/:projectId/gpu"
-          element={
-            <ProtectedRoute>
-              <GpuPage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/monitoring/:projectId/memory"
-          element={
-            <ProtectedRoute>
-              <MemoryPage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/monitoring/:projectId/storage"
-          element={
-            <ProtectedRoute>
-              <StoragePage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/monitoring/:projectId/power"
-          element={
-            <ProtectedRoute>
-              <PowerPage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/monitoring/:projectId/carbon"
-          element={
-            <ProtectedRoute>
-              <CarbonPage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/reports"
-          element={
-            <ProtectedRoute>
-              <RoleRoute allowedRoles={["CENTRAL_ADMIN", "DEPT_ADMIN"]}>
-                <Reports />
-              </RoleRoute>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/alerts"
-          element={
-            <ProtectedRoute>
-              <Alerts />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/users"
-          element={
-            <ProtectedRoute>
-              <User />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/user-profile"
-          element={
-            <ProtectedRoute>
-              <UserProfile />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/departmentViewerView"
-          element={
-            <ProtectedRoute>
-              <DepartmentViewerView />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/createDepartmentViewer"
-          element={
-            <ProtectedRoute>
-              <CreateDepartmentViewer />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/departmentAdminView"
-          element={
-            <ProtectedRoute>
-              <DepartmentAdminView />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/centralviewerView"
-          element={
-            <ProtectedRoute>
-              <CentralViewerView />
-            </ProtectedRoute>
-          }
-        />
-
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

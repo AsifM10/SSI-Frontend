@@ -1,75 +1,133 @@
 import { useState, useRef, useEffect } from "react";
-import { useSelector, useDispatch } from "react-redux";
+import { createPortal } from "react-dom";
+import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Avatar, Badge } from "antd";
 import {
-  BellOutlined,
   UserOutlined,
-  DownOutlined,
   LogoutOutlined,
   SafetyCertificateOutlined,
   MoonOutlined,
   SunOutlined,
-  CheckCircleOutlined,
-  MailOutlined,
+  DownOutlined,
+  SearchOutlined,
+  BellOutlined,
 } from "@ant-design/icons";
-import { selectUser, logout } from "../../store/slices/authSlice";
 import { useTheme } from "../../context/ThemeContext";
-
 import "./Topbar.css";
 
-const Topbar = ({ title, actions, breadcrumb }) => {
-  const dispatch = useDispatch();
+const Topbar = ({ title, role, actions, breadcrumb }) => {
   const navigate = useNavigate();
-  const user = useSelector(selectUser);
+  const { user, logout } = useAuth();
   const { dark, toggleTheme } = useTheme();
 
   const [profileOpen, setProfileOpen] = useState(false);
-  const [notifOpen, setNotifOpen] = useState(false);
   const [profilePos, setProfilePos] = useState({ top: 0, right: 0 });
+  const [notifOpen, setNotifOpen] = useState(false);
   const [notifPos, setNotifPos] = useState({ top: 0, right: 0 });
-  const profileRef = useRef(null);
-  const notifRef = useRef(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (
-        profileRef.current && !profileRef.current.contains(e.target) &&
-        !document.querySelector(".topbar-dropdown--profile")?.contains(e.target)
-      ) {
-        setProfileOpen(false);
-      }
-      if (
-        notifRef.current && !notifRef.current.contains(e.target) &&
-        !document.querySelector(".topbar-dropdown--notif")?.contains(e.target)
-      ) {
-        setNotifOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const profileBtnRef = useRef(null);
+  const notifBtnRef = useRef(null);
+  const profileDropdownRef = useRef(null);
+  const notifDropdownRef = useRef(null);
 
-  const handleLogout = () => {
-    dispatch(logout());
-    navigate("/");
-  };
-
-  const openDropdown = (which, btnRef, setPos) => {
-    if (btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 10, right: window.innerWidth - rect.right });
+  // Position calculation
+  const updateProfilePos = () => {
+    if (profileBtnRef.current) {
+      const rect = profileBtnRef.current.getBoundingClientRect();
+      setProfilePos({
+        top: rect.bottom + 8,
+        right: Math.max(16, window.innerWidth - rect.right),
+      });
     }
   };
 
+  const updateNotifPos = () => {
+    if (notifBtnRef.current) {
+      const rect = notifBtnRef.current.getBoundingClientRect();
+      setNotifPos({
+        top: rect.bottom + 8,
+        right: Math.max(16, window.innerWidth - rect.right),
+      });
+    }
+  };
+
+  const toggleProfile = () => {
+    if (!profileOpen) {
+      updateProfilePos();
+      setNotifOpen(false);
+    }
+    setProfileOpen((prev) => !prev);
+  };
+
+  const toggleNotif = () => {
+    if (!notifOpen) {
+      updateNotifPos();
+      setProfileOpen(false);
+    }
+    setNotifOpen((prev) => !prev);
+  };
+
+  // Close when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      // Check profile dropdown
+      if (profileOpen) {
+        const isClickOnBtn = profileBtnRef.current && profileBtnRef.current.contains(e.target);
+        const isClickInsideDropdown = profileDropdownRef.current && profileDropdownRef.current.contains(e.target);
+        if (!isClickOnBtn && !isClickInsideDropdown) {
+          setProfileOpen(false);
+        }
+      }
+
+      // Check notification dropdown
+      if (notifOpen) {
+        const isClickOnNotifBtn = notifBtnRef.current && notifBtnRef.current.contains(e.target);
+        const isClickInsideNotif = notifDropdownRef.current && notifDropdownRef.current.contains(e.target);
+        if (!isClickOnNotifBtn && !isClickInsideNotif) {
+          setNotifOpen(false);
+        }
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileOpen, notifOpen]);
+
+  // Keep dropdown aligned on resize/scroll
+  useEffect(() => {
+    const handleReposition = () => {
+      if (profileOpen) updateProfilePos();
+      if (notifOpen) updateNotifPos();
+    };
+
+    window.addEventListener("resize", handleReposition);
+    window.addEventListener("scroll", handleReposition, true);
+    return () => {
+      window.removeEventListener("resize", handleReposition);
+      window.removeEventListener("scroll", handleReposition, true);
+    };
+  }, [profileOpen, notifOpen]);
+
+  const handleLogout = () => {
+    setProfileOpen(false);
+    navigate("/");
+    logout();
+  };
+
+  const effectiveRole = role || user?.role || "issuer";
+  const displayUsername = user?.username ? user.username.split("@")[0] : "Admin";
+
   const notifications = [
-    { id: 1, type: "success", text: "Machine health is stable", time: "2 min ago" },
-    { id: 2, type: "warning", text: "CPU usage crossed 85% on server-01", time: "1 hr ago" },
-    { id: 3, type: "info", text: "Weekly report is ready to download", time: "3 hrs ago" },
+    { id: 1, title: "Ledger Synced", desc: "Block #148,290 verified on CDAC testnet", time: "1 min ago" },
+    { id: 2, title: "Peer Handshake", desc: "Holder did:example:holder1 connection active", time: "12 mins ago" },
+    { id: 3, title: "Audit Check", desc: "Ed25519 cryptographic key verified", time: "1 hr ago" },
   ];
 
   return (
     <div className="topbar">
+      {/* Title & Accent Rail */}
       <div className="topbar-title">
         <span className="topbar-title-accent" />
         <div className="topbar-title-text">
@@ -78,9 +136,37 @@ const Topbar = ({ title, actions, breadcrumb }) => {
         </div>
       </div>
 
+      {/* Global Search Bar */}
+      <div className="topbar-search-container">
+        <div className="topbar-search">
+          <SearchOutlined className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search credentials, schemas, DIDs..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <span className="search-shortcut">⌘K</span>
+        </div>
+      </div>
+
+      {/* Right Actions */}
       <div className="topbar-actions">
         {actions}
 
+        {/* Live Network Node Status Badge */}
+        <div className="topbar-node-badge" title="CDAC Ledger Connection: Synchronized">
+          <span className="node-pulse-dot" />
+          <span className="node-label">Indy Ledger: Synced</span>
+        </div>
+
+        {/* Dynamic Role Badge */}
+        <span className="tag tag-primary topbar-role-tag">
+          <SafetyCertificateOutlined />
+          {effectiveRole}
+        </span>
+
+        {/* Theme Toggle Button */}
         <button
           className="topbar-icon-btn"
           onClick={toggleTheme}
@@ -89,93 +175,108 @@ const Topbar = ({ title, actions, breadcrumb }) => {
           {dark ? <SunOutlined /> : <MoonOutlined />}
         </button>
 
-        <div className="topbar-notif-wrapper" ref={notifRef}>
+        {/* Notification Bell */}
+        <div className="topbar-notif-wrapper" ref={notifBtnRef}>
           <button
             className="topbar-icon-btn"
-            onClick={() => {
-              if (!notifOpen) openDropdown("notif", notifRef, setNotifPos);
-              setNotifOpen(!notifOpen);
-            }}
-            title="Notifications"
+            onClick={toggleNotif}
+            title="System Notifications"
           >
-            <Badge dot={notifications.length > 0} offset={[-4, 4]}>
-              <BellOutlined />
+            <Badge dot count={notifications.length} offset={[-3, 3]}>
+              <BellOutlined style={{ fontSize: 16 }} />
             </Badge>
           </button>
         </div>
 
-        <div className="topbar-profile-wrapper" ref={profileRef}>
+        {/* Profile Button */}
+        <div className="topbar-profile-wrapper" ref={profileBtnRef}>
           <button
             className="topbar-profile-btn"
-            onClick={() => {
-              if (!profileOpen) openDropdown("profile", profileRef, setProfilePos);
-              setProfileOpen(!profileOpen);
-            }}
+            onClick={toggleProfile}
+            type="button"
           >
             <Avatar
               size={34}
               icon={<UserOutlined />}
-              className="topbar-avatar"
+              style={{
+                background: "var(--gradient-primary)",
+                color: "#FFFFFF",
+                boxShadow: "0 2px 8px rgba(79, 70, 229, 0.3)",
+              }}
             />
-            <span className="topbar-profile-name">{user?.email?.split("@")[0] || "Admin"}</span>
-            <DownOutlined className="topbar-arrow" />
+            <span className="topbar-profile-name">{displayUsername}</span>
+            <DownOutlined className="topbar-arrow" style={{ fontSize: 10 }} />
           </button>
         </div>
       </div>
 
-      {notifOpen && (
-        <div
-          className="topbar-dropdown topbar-dropdown--notif"
-          style={{ position: "fixed", top: notifPos.top, right: notifPos.right }}
-        >
-          <div className="topbar-dropdown-head">
-            <strong>Notifications</strong>
-            <span className="topbar-dropdown-count">{notifications.length}</span>
-          </div>
-          <div className="topbar-notif-list">
-            {notifications.map((n) => (
-              <div key={n.id} className="topbar-notif-item">
-                <div className={`topbar-notif-icon ${n.type}`}>
-                  {n.type === "success" ? <CheckCircleOutlined /> : <MailOutlined />}
+      {/* Notifications Popover rendered via React Portal directly into body */}
+      {notifOpen &&
+        createPortal(
+          <div
+            ref={notifDropdownRef}
+            className="topbar-dropdown topbar-dropdown--notif animate-in"
+            style={{
+              position: "fixed",
+              top: notifPos.top,
+              right: notifPos.right,
+              zIndex: 999999,
+            }}
+          >
+            <div className="dropdown-header">
+              <strong>System Alerts</strong>
+              <span className="tag tag-cyan" style={{ fontSize: 10, padding: "2px 8px" }}>
+                Live
+              </span>
+            </div>
+            <div className="notif-list">
+              {notifications.map((n) => (
+                <div key={n.id} className="notif-item">
+                  <div className="notif-item-header">
+                    <span className="notif-title">{n.title}</span>
+                    <span className="notif-time">{n.time}</span>
+                  </div>
+                  <p className="notif-desc">{n.desc}</p>
                 </div>
-                <div className="topbar-notif-content">
-                  <p>{n.text}</p>
-                  <span>{n.time}</span>
+              ))}
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Profile Popover rendered via React Portal directly into body */}
+      {profileOpen &&
+        createPortal(
+          <div
+            ref={profileDropdownRef}
+            className="topbar-dropdown topbar-dropdown--profile animate-in"
+            style={{
+              position: "fixed",
+              top: profilePos.top,
+              right: profilePos.right,
+              zIndex: 999999,
+            }}
+          >
+            <div className="topbar-profile-head">
+              <Avatar
+                size={40}
+                icon={<UserOutlined />}
+                style={{ background: "var(--gradient-primary)", color: "#FFFFFF" }}
+              />
+              <div>
+                <div className="profile-name-lg">{user?.username || "Admin"}</div>
+                <div className="profile-role-sub">
+                  Current Role: <strong>{user?.role || effectiveRole}</strong>
                 </div>
               </div>
-            ))}
-          </div>
-          <button className="topbar-dropdown-footer" onClick={() => navigate("/alerts")}>
-            View all alerts
-          </button>
-        </div>
-      )}
-
-      {profileOpen && (
-        <div
-          className="topbar-dropdown topbar-dropdown--profile"
-          style={{ position: "fixed", top: profilePos.top, right: profilePos.right }}
-        >
-          <div className="topbar-profile-head">
-            <Avatar size={42} icon={<UserOutlined />} className="topbar-profile-avatar" />
-            <div className="topbar-profile-info">
-              <div className="topbar-profile-name-lg">{user?.email?.split("@")[0] || "User"}</div>
-              <div className="topbar-profile-email">{user?.email}</div>
             </div>
-          </div>
-          <div className="topbar-profile-role">
-            <SafetyCertificateOutlined /> {user?.role}
-          </div>
-          <div className="topbar-dropdown-divider" />
-          <button className="topbar-dropdown-item" onClick={() => navigate("/user-profile")}>
-            <UserOutlined /> View Profile
-          </button>
-          <div className="topbar-dropdown-divider" />
-          <button className="topbar-dropdown-item logout" onClick={handleLogout}>
-            <LogoutOutlined /> Logout
-          </button>
-        </div>
-      )}
+            <div className="dropdown-divider" />
+            <button className="topbar-dropdown-item logout" onClick={handleLogout}>
+              <LogoutOutlined /> Sign Out
+            </button>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
