@@ -388,3 +388,81 @@
   align-items: center;
   gap: 10px;
 }
+
+/* =========================================================
+   INFRASTRUCTURE HEALTH GRID
+   ========================================================= */
+.infra-health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.infra-health-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.infra-health-card:hover {
+  transform: translateY(-2px);
+  border-color: #2563EB;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.06);
+}
+
+.infra-health-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.infra-service-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.infra-health-desc {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.infra-health-meta {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* =========================================================
+   ONBOARDING GUIDE MODAL STYLING
+   ========================================================= */
+.guide-step-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-color);
+}
+
+.guide-step-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #1B365D;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+

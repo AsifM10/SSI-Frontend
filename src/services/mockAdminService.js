@@ -12,46 +12,78 @@ let MOCK_RESERVATIONS = [
   {
     reservation_id: "res-9081",
     tenant_name: "Apex Healthcare Verification",
+    organization_type: "Healthcare Network & Medical Board",
+    domain: "apexhealth.org",
     contact_name: "Dr. Evelyn Reed",
     contact_email: "evelyn.reed@apexhealth.org",
     contact_phone: "+1 (555) 234-5678",
+    requested_role: "verifier",
+    requested_capabilities: [
+      "Presentation Exchange",
+      "Zero-Knowledge Predicate Validation",
+      "Medical License Verification",
+    ],
     state: "pending",
+    provisioning_status: "pending",
     created_at: "2024-05-14T11:20:00Z",
     updated_at: "2024-05-14T11:20:00Z",
-    state_notes: "Hospital network onboarding for medical license verifications",
+    state_notes: "Hospital network onboarding to verify medical personnel certifications and licenses across 14 state branches.",
   },
   {
     reservation_id: "res-9082",
     tenant_name: "Metropolitan Police Identity Services",
+    organization_type: "Law Enforcement & Public Safety",
+    domain: "metropolice.gov",
     contact_name: "Capt. Marcus Vance",
     contact_email: "m.vance@metropolice.gov",
     contact_phone: "+1 (555) 987-6543",
+    requested_role: "issuer",
+    requested_capabilities: [
+      "Schema & Credential Definition Publishing",
+      "Officer Digital Badges Issuance",
+      "Cryptographic Revocation Accumulator",
+    ],
     state: "pending",
+    provisioning_status: "pending",
     created_at: "2024-05-14T16:45:00Z",
     updated_at: "2024-05-14T16:45:00Z",
-    state_notes: "Requesting issuer capability on test ledger for digital badges",
+    state_notes: "Requesting issuer authority on ledger to issue tamper-proof digital duty credentials and field badges.",
   },
   {
     reservation_id: "res-8990",
     tenant_name: "Global Fintech Consortium",
+    organization_type: "Banking & Financial Services",
+    domain: "gfintech.io",
     contact_name: "Sarah Lin",
     contact_email: "s.lin@gfintech.io",
     contact_phone: "+1 (555) 345-6789",
+    requested_role: "both",
+    requested_capabilities: [
+      "KYC Credential Issuance",
+      "Cross-Border Identity Verification",
+      "Multi-Ledger Switching",
+    ],
     state: "approved",
+    provisioning_status: "completed",
     created_at: "2024-05-10T09:15:00Z",
     updated_at: "2024-05-10T10:00:00Z",
-    state_notes: "Provisioned with endorser access and sandbox DID",
+    state_notes: "Provisioned with endorser access and dedicated multi-tenant wallet enclave (ten-003).",
   },
   {
     reservation_id: "res-8812",
     tenant_name: "Anonymous Web Crawlers LLC",
+    organization_type: "Unverified Web Entity",
+    domain: "anon-proxy.net",
     contact_name: "Unknown Contact",
     contact_email: "crawler-bot@anon-proxy.net",
     contact_phone: "+0 (000) 000-0000",
+    requested_role: "issuer",
+    requested_capabilities: ["Unrestricted Issuer Authority"],
     state: "denied",
+    provisioning_status: "not_applicable",
     created_at: "2024-05-08T14:30:00Z",
     updated_at: "2024-05-08T15:10:00Z",
-    state_notes: "Failed business domain verification and security clearance",
+    state_notes: "Failed organizational verification, invalid business domain, and unverified contact entity.",
   },
 ];
 
@@ -213,31 +245,57 @@ const MOCK_SYSTEM_HEALTH = {
 let MOCK_AUDIT_LOGS = [
   {
     id: "log-1",
-    event: "Reservation Approval",
+    event: "Organization Request Approved",
+    category: "Organization Onboarding",
     user: "admin@example.com",
     timestamp: "2024-05-14T09:15:00Z",
-    details: "Approved tenant reservation res-8990 (Global Fintech Consortium)",
+    details: "Approved onboarding reservation res-8990 for Global Fintech Consortium. Provisioned tenant enclave ten-003.",
+    target: "Global Fintech Consortium",
   },
   {
     id: "log-2",
     event: "Credential Issuance",
+    category: "Credentials & Proofs",
     user: "issuer@example.com",
     timestamp: "2024-05-10T14:00:00Z",
     details: "Issued University Degree credential to holder Alice Johnson",
+    target: "Alice Johnson",
   },
   {
     id: "log-3",
     event: "Tenant Configuration Updated",
+    category: "Tenant Configuration",
     user: "admin@example.com",
     timestamp: "2024-05-12T08:30:00Z",
-    details: "Enabled canBecomeIssuer for tenant ten-001",
+    details: "Enabled canBecomeIssuer for tenant ten-001 (University Credentials Authority)",
+    target: "University Credentials Authority",
   },
   {
     id: "log-4",
     event: "Proof Presentation Verified",
+    category: "Credentials & Proofs",
     user: "verifier@example.com",
     timestamp: "2024-05-13T16:20:00Z",
     details: "Cryptographically verified academic credential for Bob Smith",
+    target: "Bob Smith",
+  },
+  {
+    id: "log-5",
+    event: "Organization Request Denied",
+    category: "Organization Onboarding",
+    user: "admin@example.com",
+    timestamp: "2024-05-08T15:10:00Z",
+    details: "Denied onboarding request res-8812 for Anonymous Web Crawlers LLC due to failed verification.",
+    target: "Anonymous Web Crawlers LLC",
+  },
+  {
+    id: "log-6",
+    event: "User Account Suspended",
+    category: "User Governance",
+    user: "admin@example.com",
+    timestamp: "2024-05-01T11:00:00Z",
+    details: "Suspended user account suspended.user@rogueagency.com following compliance review.",
+    target: "Flagged Enterprise",
   },
 ];
 
@@ -271,6 +329,17 @@ export const mockAdminApi = {
       createdAt: new Date().toISOString(),
     };
     MOCK_USERS.unshift(newUser);
+
+    MOCK_AUDIT_LOGS.unshift({
+      id: `log-${Date.now()}`,
+      event: "User Account Created",
+      category: "User Governance",
+      user: "admin@example.com",
+      timestamp: new Date().toISOString(),
+      details: `Created new user identity account: ${newUser.username} (${newUser.role})`,
+      target: newUser.organization || newUser.username,
+    });
+
     return { success: true, data: newUser };
   },
 
@@ -279,7 +348,18 @@ export const mockAdminApi = {
     await new Promise((resolve) => setTimeout(resolve, 300));
     const user = MOCK_USERS.find((u) => u.id === userId);
     if (user) {
+      const oldStatus = user.status;
       user.status = status;
+
+      MOCK_AUDIT_LOGS.unshift({
+        id: `log-${Date.now()}`,
+        event: `User Account ${status === "suspended" ? "Suspended" : "Activated"}`,
+        category: "User Governance",
+        user: "admin@example.com",
+        timestamp: new Date().toISOString(),
+        details: `Updated account status for ${user.username} from ${oldStatus} to ${status}`,
+        target: user.organization || user.username,
+      });
     }
     return { success: true, data: user };
   },
@@ -287,7 +367,21 @@ export const mockAdminApi = {
   /** Delete user */
   deleteUser: async (id) => {
     await new Promise((resolve) => setTimeout(resolve, 300));
+    const user = MOCK_USERS.find((u) => u.id === id);
     MOCK_USERS = MOCK_USERS.filter((u) => u.id !== id);
+
+    if (user) {
+      MOCK_AUDIT_LOGS.unshift({
+        id: `log-${Date.now()}`,
+        event: "User Account Deleted",
+        category: "User Governance",
+        user: "admin@example.com",
+        timestamp: new Date().toISOString(),
+        details: `Deleted user record: ${user.username}`,
+        target: user.organization || user.username,
+      });
+    }
+
     return { success: true };
   },
 
@@ -297,24 +391,27 @@ export const mockAdminApi = {
     return { success: true, data: [...MOCK_RESERVATIONS] };
   },
 
-  /** Approve reservation */
-  approveReservation: async (reservationId, notes = "Approved by Innkeeper Administrator") => {
+  /** Approve reservation & provision tenant */
+  approveReservation: async (reservationId, notes = "Approved by Governance Innkeeper Administrator") => {
     await new Promise((resolve) => setTimeout(resolve, 500));
     const resRecord = MOCK_RESERVATIONS.find((r) => r.reservation_id === reservationId);
     if (!resRecord) return { success: false, message: "Reservation not found" };
 
     resRecord.state = "approved";
+    resRecord.provisioning_status = "completed";
     resRecord.updated_at = new Date().toISOString();
     resRecord.state_notes = notes;
+
+    const canIssuer = resRecord.requested_role === "issuer" || resRecord.requested_role === "both";
 
     // Create corresponding active tenant
     const newTenant = {
       tenant_id: `ten-${Date.now().toString().slice(-4)}`,
       tenant_name: resRecord.tenant_name,
       is_active: true,
-      canBecomeIssuer: true,
+      canBecomeIssuer: canIssuer,
       enable_ledger_switch: false,
-      connect_to_endorser: ["bcovrin:test"],
+      connect_to_endorser: canIssuer ? ["bcovrin:test"] : [],
       created_public_did: [`did:sov:${Math.random().toString(36).substring(2, 14)}`],
       api_key_masked: `sk_live_****...${Math.floor(Math.random() * 9000 + 1000)}`,
       created_at: new Date().toISOString(),
@@ -324,10 +421,12 @@ export const mockAdminApi = {
 
     MOCK_AUDIT_LOGS.unshift({
       id: `log-${Date.now()}`,
-      event: "Reservation Approval",
+      event: "Organization Request Approved",
+      category: "Organization Onboarding",
       user: "admin@example.com",
       timestamp: new Date().toISOString(),
-      details: `Approved reservation ${reservationId} for ${resRecord.tenant_name}`,
+      details: `Approved onboarding request ${reservationId} for ${resRecord.tenant_name}. Provisioned tenant ${newTenant.tenant_id}.`,
+      target: resRecord.tenant_name,
     });
 
     return { success: true, data: { reservation: resRecord, tenant: newTenant } };
@@ -340,15 +439,18 @@ export const mockAdminApi = {
     if (!resRecord) return { success: false, message: "Reservation not found" };
 
     resRecord.state = "denied";
+    resRecord.provisioning_status = "not_applicable";
     resRecord.updated_at = new Date().toISOString();
     resRecord.state_notes = reason;
 
     MOCK_AUDIT_LOGS.unshift({
       id: `log-${Date.now()}`,
-      event: "Reservation Denied",
+      event: "Organization Request Denied",
+      category: "Organization Onboarding",
       user: "admin@example.com",
       timestamp: new Date().toISOString(),
-      details: `Denied reservation ${reservationId}: ${reason}`,
+      details: `Denied onboarding request ${reservationId} for ${resRecord.tenant_name}: ${reason}`,
+      target: resRecord.tenant_name,
     });
 
     return { success: true, data: resRecord };
@@ -367,6 +469,17 @@ export const mockAdminApi = {
     if (!tenant) return { success: false, message: "Tenant not found" };
 
     Object.assign(tenant, updates);
+
+    MOCK_AUDIT_LOGS.unshift({
+      id: `log-${Date.now()}`,
+      event: "Tenant Configuration Updated",
+      category: "Tenant Configuration",
+      user: "admin@example.com",
+      timestamp: new Date().toISOString(),
+      details: `Updated configuration for tenant ${tenant.tenant_name} (${tenantId})`,
+      target: tenant.tenant_name,
+    });
+
     return { success: true, data: tenant };
   },
 

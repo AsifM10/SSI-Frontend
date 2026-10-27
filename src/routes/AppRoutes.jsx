@@ -180,6 +180,14 @@ export default function AppRoutes() {
           }
         />
         <Route
+          path="/admin-requests"
+          element={
+            <RoleGuard allowedRoles={["admin"]}>
+              <AdminDashboard activeTab="requests" />
+            </RoleGuard>
+          }
+        />
+        <Route
           path="/admin-users"
           element={
             <RoleGuard allowedRoles={["admin"]}>

@@ -9,6 +9,7 @@ import {
   SafetyCertificateOutlined,
   AuditOutlined,
   WalletOutlined,
+  BankOutlined,
 } from "@ant-design/icons";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -82,13 +83,14 @@ const Sidebar = ({ collapsed, role }) => {
     navigationSections.push({
       title: "Governance",
       items: [
+        { key: "admin-requests", path: "/admin-requests", icon: BankOutlined, label: "Organization Requests" },
         { key: "admin-users", path: "/admin-users", icon: UsergroupAddOutlined, label: "User Accounts" },
       ],
     });
     navigationSections.push({
-      title: "Infrastructure",
+      title: "Infrastructure & Auditing",
       items: [
-        { key: "admin-system", path: "/admin-system", icon: SettingOutlined, label: "Node Telemetry" },
+        { key: "admin-system", path: "/admin-system", icon: SettingOutlined, label: "Infrastructure" },
         { key: "admin-audit", path: "/admin-audit", icon: InfoOutlined, label: "Audit Logs" },
       ],
     });
