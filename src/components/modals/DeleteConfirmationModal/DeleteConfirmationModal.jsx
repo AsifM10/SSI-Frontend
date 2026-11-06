@@ -51,7 +51,7 @@ const handleDelete = async () => {
       onOk={handleDelete}
       onCancel={onCancel}
       confirmLoading={loading}
-      destroyOnClose
+      destroyOnHidden
       width={460}
       className="delete-confirm-modal"
       okButtonProps={{ danger: true }}

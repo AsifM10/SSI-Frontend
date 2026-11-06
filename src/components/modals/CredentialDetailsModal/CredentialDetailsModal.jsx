@@ -50,7 +50,7 @@ export default function CredentialDetailsModal({ visible, onClose, credential })
           Close
         </Button>,
       ]}
-      destroyOnClose
+      destroyOnHidden
     >
       <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>

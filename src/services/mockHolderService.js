@@ -246,6 +246,7 @@ export const mockHolderApi = {
       data: {
         presentationId: `adhoc-${Date.now().toString(36)}`,
         connectionId,
+        credId,
         revealedAttrs,
         predicates,
         comment,
@@ -294,6 +295,7 @@ export const mockHolderApi = {
       peerName: alias || "New Verified Peer",
       alias: alias || "Peer Connection",
       status: "active",
+      invitationUrl,
       createdAt: new Date().toISOString(),
     };
     MOCK_CONNECTIONS.unshift(newConn);

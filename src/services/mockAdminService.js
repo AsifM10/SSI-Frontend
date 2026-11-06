@@ -95,7 +95,7 @@ let MOCK_TENANTS = [
     canBecomeIssuer: true,
     enable_ledger_switch: true,
     connect_to_endorser: ["bcovrin:test"],
-    created_public_did: ["did:sov:M6Mbe3qx7vBQAitT21A2K1"],
+    created_public_did: ["did:sov:F5XFAKiDuocKsVfNx7GuFe"],
     api_key_masked: "sk_live_****...99a1",
     created_at: "2024-01-15T10:30:00Z",
     wallet_id: "wal-univ-8821",
@@ -118,7 +118,7 @@ let MOCK_TENANTS = [
     is_active: true,
     canBecomeIssuer: true,
     enable_ledger_switch: true,
-    connect_to_endorser: ["bcovrin:test", "indicio:testnet"],
+    connect_to_endorser: ["cdac:ssi-ledger"],
     created_public_did: ["did:sov:GFIN7711223344556677889"],
     api_key_masked: "sk_live_****...77c3",
     created_at: "2024-05-10T10:00:00Z",
@@ -202,19 +202,10 @@ const MOCK_SERVER_CONFIG = {
   config: {
     "ledger.ledger_config_list": [
       {
-        id: "bcovrin:test",
-        endorser_alias: "BCOVRIN Test Ledger",
-        endorser_did: "V4SGRU86Z58d6TV7PBUe6f",
-      },
-      {
-        id: "indicio:testnet",
-        endorser_alias: "Indicio Testnet Endorser",
-        endorser_did: "2wJPyULganL3zJ5i521LN7",
-      },
-      {
-        id: "idunion:test",
-        endorser_alias: "IDunion European Testnet",
-        endorser_did: "7T1yULganL3zJ5i521LN99",
+        id: "cdac:ssi-ledger",
+        endorser_alias: "CDAC-SSI Ledger",
+        endorser_did: "CDAC-SSI Genesis Node",
+        endorser_url: "http://10.210.13.22:9000/",
       },
     ],
   },
@@ -233,6 +224,8 @@ const MOCK_SERVER_CONFIG = {
 const MOCK_SYSTEM_HEALTH = {
   backendHealth: "healthy",
   ledgerConnectivity: "connected",
+  ledgerName: "CDAC-SSI Ledger",
+  ledgerUrl: "http://10.210.13.22:9000/",
   agentStatus: {
     issuer: "running",
     holder: "running",

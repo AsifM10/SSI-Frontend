@@ -84,10 +84,17 @@ const Home = () => {
         </div>
 
         <div className="home-nav-actions">
-          <div className="network-status-pill">
+          <a
+            href="http://10.210.13.22:9000/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="network-status-pill"
+            style={{ textDecoration: "none", color: "inherit" }}
+            title="CDAC-SSI Ledger (http://10.210.13.22:9000/) - Online"
+          >
             <span className="node-pulse-dot" />
-            <span>CDAC Indy Ledger: Online</span>
-          </div>
+            <span>CDAC-SSI Ledger: Online</span>
+          </a>
 
           <button
             className="theme-toggle-btn"

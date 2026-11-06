@@ -366,6 +366,7 @@ export const mockIssuerApi = {
       holderName: alias || "New Peer Holder",
       alias: alias || "Accepted Peer Connection",
       status: "active",
+      invitationUrl,
       createdAt: new Date().toISOString(),
     };
     MOCK_CONNECTIONS.unshift(newConn);

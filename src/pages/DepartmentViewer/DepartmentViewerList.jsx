@@ -346,7 +346,7 @@ const DepartmentViewerList = () => {
         okText={creating ? "Creating..." : "Create"}
         cancelText="Cancel"
         confirmLoading={creating}
-        destroyOnClose
+        destroyOnHidden
         width={640}
         className="create-viewer-modal"
       >
@@ -445,7 +445,7 @@ const DepartmentViewerList = () => {
         okText={saving ? "Saving..." : "Save"}
         cancelText="Cancel"
         confirmLoading={saving}
-        destroyOnClose
+        destroyOnHidden
         width={640}
         className="create-viewer-modal"
       >
@@ -495,7 +495,7 @@ const DepartmentViewerList = () => {
         footer={null}
         width={560}
         centered
-        destroyOnClose
+        destroyOnHidden
         className="admin-view-modal"
       >
         <div className="detail-card admin-view-card">

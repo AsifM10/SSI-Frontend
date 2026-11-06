@@ -116,6 +116,15 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
   const [historyFilter, setHistoryFilter] = useState("all");
   const [connectionSearch, setConnectionSearch] = useState("");
 
+  const [currentVerifierDID, setCurrentVerifierDID] = useState(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem("user") || "{}");
+      return u?.did || "did:sov:verifier";
+    } catch {
+      return "did:sov:verifier";
+    }
+  });
+
   // Modals
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [isConnectionModalOpen, setIsConnectionModalOpen] = useState(false);
@@ -137,9 +146,10 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
   const loadData = async (showLoadingSpinner = false) => {
     if (showLoadingSpinner) setLoading(true);
     try {
-      const [presRes, connRes] = await Promise.all([
+      const [presRes, connRes, didRes] = await Promise.all([
         verifierService.getPresentations ? verifierService.getPresentations() : verifierService.getProofRequests(),
         verifierService.getConnections(),
+        verifierService.getDID ? verifierService.getDID() : Promise.resolve({ did: null }),
       ]);
 
       if (presRes?.success) {
@@ -147,6 +157,9 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
       }
       if (connRes?.success) {
         setConnections(connRes.data || []);
+      }
+      if (didRes?.did) {
+        setCurrentVerifierDID(didRes.did);
       }
     } catch {
       message.error("Failed to load verifier data");
@@ -159,13 +172,15 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
     let isMounted = true;
     const fetchInitialData = async () => {
       try {
-        const [presRes, connRes] = await Promise.all([
+        const [presRes, connRes, didRes] = await Promise.all([
           verifierService.getPresentations ? verifierService.getPresentations() : verifierService.getProofRequests(),
           verifierService.getConnections(),
+          verifierService.getDID ? verifierService.getDID() : Promise.resolve({ did: null }),
         ]);
         if (!isMounted) return;
         if (presRes?.success) setPresentations(presRes.data || []);
         if (connRes?.success) setConnections(connRes.data || []);
+        if (didRes?.did) setCurrentVerifierDID(didRes.did);
       } catch {
         if (isMounted) message.error("Failed to load verifier data");
       } finally {
@@ -341,7 +356,6 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
     (p) => p.state === "abandoned" || p.state === "rejected" || p.state === "failed"
   );
 
-  const currentVerifierDID = "did:sov:V3RF81mC9w4qP2xT8Y";
   const handleCopyDID = () => {
     navigator.clipboard.writeText(currentVerifierDID);
     message.success("Verifier DID copied to clipboard!");
@@ -1282,7 +1296,7 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
           onCancel={() => setIsRequestModalOpen(false)}
           footer={null}
           width={680}
-          destroyOnClose
+          destroyOnHidden
         >
           <Form
             form={requestForm}
@@ -1441,7 +1455,7 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
               {hasRestrictions && (
                 <div style={{ marginTop: 8 }}>
                   <Input
-                    placeholder="e.g. did:sov:M6Mbe3qx7vBQAitT21A2K1"
+                    placeholder="e.g. did:sov:F5XFAKiDuocKsVfNx7GuFe"
                     value={restrictionIssuerDid}
                     onChange={(e) => setRestrictionIssuerDid(e.target.value)}
                   />
@@ -1449,14 +1463,7 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
               )}
             </div>
 
-            {/* Simulated Banner */}
-            <Alert
-              type="info"
-              showIcon
-              message="Simulated Verifier Operation"
-              description="Offline development mode: The proof request is handled via the mock service architecture without calling live network ledger nodes."
-              style={{ marginBottom: 20 }}
-            />
+
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
               <Button onClick={() => setIsRequestModalOpen(false)}>Cancel</Button>
@@ -1733,8 +1740,8 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
                     ),
                     children: (
                       <div style={{ background: "var(--surface-2, #f8fafc)", padding: 10, borderRadius: 6, fontSize: 11, fontFamily: "monospace", overflowX: "auto" }}>
-                        <div>Schema ID: {selectedRecordForDetails.presentation?.identifiers?.[0]?.schema_id || "M6Mbe3qx7vBQAitT21A2K1:2:Credential:1.0"}</div>
-                        <div>Cred Def ID: {selectedRecordForDetails.presentation?.identifiers?.[0]?.cred_def_id || "M6Mbe3qx7vBQAitT21A2K1:3:CL:12401:default"}</div>
+                        <div>Schema ID: {selectedRecordForDetails.presentation?.identifiers?.[0]?.schema_id || "F5XFAKiDuocKsVfNx7GuFe:2:Credential:1.0"}</div>
+                        <div>Cred Def ID: {selectedRecordForDetails.presentation?.identifiers?.[0]?.cred_def_id || "F5XFAKiDuocKsVfNx7GuFe:3:CL:12401:default"}</div>
                         <div>Rev Reg ID: {selectedRecordForDetails.presentation?.identifiers?.[0]?.rev_reg_id || "CL_ACCUM:Active"}</div>
                         <div style={{ marginTop: 6, color: "var(--text-muted)" }}>Exchange Record: {selectedRecordForDetails.presentation_exchange_id}</div>
                       </div>

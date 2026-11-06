@@ -82,7 +82,7 @@ let MOCK_PRESENTATIONS = [
         pred_1: { name: "age", p_type: ">=", p_value: 18, label: "Age >= 18" },
       },
       restrictions: [
-        { schema_name: "National Identity / Age", issuer_did: "did:sov:M6Mbe3qx7vBQAitT21A2K1" },
+        { schema_name: "National Identity / Age", issuer_did: "did:sov:F5XFAKiDuocKsVfNx7GuFe" },
       ],
     },
     presentation: {
@@ -97,9 +97,9 @@ let MOCK_PRESENTATIONS = [
       },
       identifiers: [
         {
-          schema_id: "M6Mbe3qx7vBQAitT21A2K1:2:National Identity:1.0",
-          cred_def_id: "M6Mbe3qx7vBQAitT21A2K1:3:CL:12401:default",
-          rev_reg_id: "M6Mbe3qx7vBQAitT21A2K1:4:CL_ACCUM:12401",
+          schema_id: "F5XFAKiDuocKsVfNx7GuFe:2:National Identity:1.0",
+          cred_def_id: "F5XFAKiDuocKsVfNx7GuFe:3:CL:12401:default",
+          rev_reg_id: "F5XFAKiDuocKsVfNx7GuFe:4:CL_ACCUM:12401",
           timestamp: 1715681400,
         },
       ],
@@ -139,7 +139,7 @@ let MOCK_PRESENTATIONS = [
         pred_1: { name: "gradeAverage", p_type: ">=", p_value: 3.5, label: "GPA >= 3.5" },
       },
       restrictions: [
-        { schema_name: "University Degree", issuer_did: "did:sov:M6Mbe3qx7vBQAitT21A2K1" },
+        { schema_name: "University Degree", issuer_did: "did:sov:F5XFAKiDuocKsVfNx7GuFe" },
       ],
     },
     presentation: {
@@ -156,8 +156,8 @@ let MOCK_PRESENTATIONS = [
       },
       identifiers: [
         {
-          schema_id: "M6Mbe3qx7vBQAitT21A2K1:2:University Degree:1.0",
-          cred_def_id: "M6Mbe3qx7vBQAitT21A2K1:3:CL:12402:academic-2024",
+          schema_id: "F5XFAKiDuocKsVfNx7GuFe:2:University Degree:1.0",
+          cred_def_id: "F5XFAKiDuocKsVfNx7GuFe:3:CL:12402:academic-2024",
           timestamp: 1715525100,
         },
       ],
@@ -260,8 +260,8 @@ let MOCK_PRESENTATIONS = [
       },
       identifiers: [
         {
-          schema_id: "M6Mbe3qx7vBQAitT21A2K1:2:Cyber Security Certification:1.0",
-          cred_def_id: "M6Mbe3qx7vBQAitT21A2K1:3:CL:12403:cert-2024",
+          schema_id: "F5XFAKiDuocKsVfNx7GuFe:2:Cyber Security Certification:1.0",
+          cred_def_id: "F5XFAKiDuocKsVfNx7GuFe:3:CL:12403:cert-2024",
           timestamp: 1715243400,
         },
       ],

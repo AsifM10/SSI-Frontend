@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { selectUser } from "../../store/slices/authSlice";
 import {
   Table,
   Modal,
@@ -12,13 +14,14 @@ import {
   Switch,
   InputNumber,
   Space,
-  Card,
   Popconfirm,
   Tooltip,
   Tabs,
-  Badge,
   Popover,
   Avatar,
+  Steps,
+  Alert,
+  Descriptions,
 } from "antd";
 import {
   AuditOutlined,
@@ -40,11 +43,14 @@ import {
   InboxOutlined,
   SendOutlined,
   ArrowRightOutlined,
+  ArrowLeftOutlined,
   DatabaseOutlined,
   DeploymentUnitOutlined,
   InfoCircleOutlined,
   CommentOutlined,
-  UserOutlined,
+  ApartmentOutlined,
+  GlobalOutlined,
+  FieldStringOutlined,
 } from "@ant-design/icons";
 import DashboardLayout from "../../layouts/DashboardLayout/DashboardLayout";
 import StatCard from "../../components/cards/StatCard/StatCard";
@@ -53,13 +59,16 @@ import ViewTemplateModal from "../../components/modals/ViewTemplateModal/ViewTem
 import CredentialDetailsModal from "../../components/modals/CredentialDetailsModal/CredentialDetailsModal";
 import { issuerService } from "../../services/apiClient";
 import "./IssuerDashboard.css";
+import "../../components/modals/ViewTemplateModal/ViewTemplateModal.css";
 
 const { Option } = Select;
 
 const IssuerDashboard = ({ activeTab = "dashboard" }) => {
   const navigate = useNavigate();
+  const user = useSelector(selectUser);
   const [loading, setLoading] = useState(true);
   const [didInfo, setDidInfo] = useState(null);
+  const [dashboardStats, setDashboardStats] = useState({});
   const [schemas, setSchemas] = useState([]);
   const [credDefs, setCredDefs] = useState([]);
   const [connections, setConnections] = useState([]);
@@ -82,7 +91,10 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
   const [selectedSchemaForView, setSelectedSchemaForView] = useState(null);
   const [selectedCredentialForView, setSelectedCredentialForView] = useState(null);
 
-  // Schema form state
+  // Schema form & wizard state
+  const [schemaCreationStep, setSchemaCreationStep] = useState(0);
+  const [schemaPreviewData, setSchemaPreviewData] = useState(null);
+  const [isPublishingSchema, setIsPublishingSchema] = useState(false);
   const [schemaAttributes, setSchemaAttributes] = useState(["fullName", "email", "role"]);
   const [newAttributeInput, setNewAttributeInput] = useState("");
 
@@ -92,53 +104,77 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
   const [schemaForm] = Form.useForm();
   const [credDefForm] = Form.useForm();
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [didRes, schemaRes, defRes, connRes, actRes, propRes] = await Promise.all([
-        issuerService.getDID(),
-        issuerService.getSchemas(),
-        issuerService.getCredentialDefinitions(),
-        issuerService.getConnections(),
-        issuerService.getIssuanceActivity(),
-        issuerService.getProposals ? issuerService.getProposals() : Promise.resolve({ data: [] }),
+      const [didRes, schemaRes, defRes, connRes, actRes, propRes, statsRes] = await Promise.all([
+        issuerService.getDID().catch(() => ({ success: true, did: null })),
+        issuerService.getSchemas().catch(() => ({ success: true, data: [] })),
+        issuerService.getCredentialDefinitions().catch(() => ({ success: true, data: [] })),
+        issuerService.getConnections().catch(() => ({ success: true, data: [] })),
+        issuerService.getIssuanceActivity().catch(() => ({ success: true, data: [] })),
+        issuerService.getProposals ? issuerService.getProposals().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+        issuerService.getDashboardStats ? issuerService.getDashboardStats().catch(() => ({ success: true, data: {} })) : Promise.resolve({ success: true, data: {} }),
       ]);
 
-      if (didRes?.success) setDidInfo(didRes.data);
-      if (schemaRes?.success) setSchemas(schemaRes.data || []);
+      if (didRes?.success && didRes.data) setDidInfo(didRes.data);
+      if (statsRes?.data) setDashboardStats(statsRes.data);
+      if (schemaRes?.success) setSchemas(Array.isArray(schemaRes.data) ? schemaRes.data : []);
       if (defRes?.success) {
-        setCredDefs(defRes.data || []);
-        if (defRes.data?.length > 0 && !selectedCredDefForIssue) {
-          setSelectedCredDefForIssue(defRes.data[0]);
+        const defList = Array.isArray(defRes.data) ? defRes.data : [];
+        setCredDefs(defList);
+        if (defList.length > 0 && !selectedCredDefForIssue) {
+          setSelectedCredDefForIssue(defList[0]);
         }
       }
-      if (connRes?.success) setConnections(connRes.data || []);
-      if (actRes?.success) setActivities(actRes.data || []);
-      if (propRes?.success) setProposals(propRes.data || []);
+      if (connRes?.success) setConnections(Array.isArray(connRes.data) ? connRes.data : []);
+      if (actRes?.success) setActivities(Array.isArray(actRes.data) ? actRes.data : []);
+      if (propRes?.success) setProposals(Array.isArray(propRes.data) ? propRes.data : []);
     } catch {
       message.error("Failed to load issuer data");
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedCredDefForIssue]);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    let isMounted = true;
+    (async () => {
+      await loadData();
+      if (!isMounted) return;
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, [loadData]);
+
+  const userDid = user?.did || (user?.rawDid ? (user.rawDid.startsWith("did:") ? user.rawDid : `did:sov:${user.rawDid}`) : null);
+  const fetchedDid = didInfo?.did || (didInfo?.rawDid ? (didInfo.rawDid.startsWith("did:") ? didInfo.rawDid : `did:sov:${didInfo.rawDid}`) : null);
+  const currentIssuerDID = fetchedDid || userDid || null;
+  const isWalletProvisioned = Boolean(currentIssuerDID || (user?.tenantId && user?.walletId));
 
   const handleCopyDID = () => {
-    const didText = didInfo?.did || "did:sov:M6Mbe3qx7vBQAitT21A2K1";
-    navigator.clipboard.writeText(didText);
+    if (!currentIssuerDID) {
+      message.warning("DID not yet provisioned on ledger. Wallet provisioning required.");
+      return;
+    }
+    navigator.clipboard.writeText(currentIssuerDID);
     message.success("DID copied to clipboard!");
   };
 
-  const handleCopyDIDDoc = () => {
-    const docString = JSON.stringify(didDocumentObject, null, 2);
-    navigator.clipboard.writeText(docString);
-    message.success("DID Document JSON copied to clipboard!");
+  // Create Schema Wizard Handlers
+  const handleOpenCreateSchemaModal = () => {
+    setSchemaCreationStep(0);
+    setSchemaPreviewData(null);
+    setIsSchemaModalOpen(true);
   };
 
-  // Create Schema
+  const handleCloseCreateSchemaModal = () => {
+    setIsSchemaModalOpen(false);
+    setSchemaCreationStep(0);
+    setSchemaPreviewData(null);
+  };
+
   const handleAddAttribute = () => {
     const trimmed = newAttributeInput.trim();
     if (trimmed && !schemaAttributes.includes(trimmed)) {
@@ -151,37 +187,79 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
     setSchemaAttributes(schemaAttributes.filter((a) => a !== attr));
   };
 
-  const handleCreateSchema = async (values) => {
-    if (schemaAttributes.length === 0) {
-      message.warning("Please specify at least one attribute for the schema");
-      return;
+  const applyAttributePreset = (presetName) => {
+    if (presetName === "student") {
+      schemaForm.setFieldsValue({ name: "Degree Certificate", version: "1.0" });
+      setSchemaAttributes(["studentId", "fullName", "degreeName", "major", "graduationDate", "gpa", "institution"]);
+    } else if (presetName === "employee") {
+      schemaForm.setFieldsValue({ name: "Corporate Employee ID", version: "1.0" });
+      setSchemaAttributes(["employeeId", "fullName", "jobTitle", "department", "email", "dateOfJoining", "securityClearance"]);
+    } else if (presetName === "citizen") {
+      schemaForm.setFieldsValue({ name: "Citizen Identity Card", version: "1.0" });
+      setSchemaAttributes(["citizenId", "fullName", "dob", "gender", "address", "state", "issuingAuthority"]);
     }
+    message.info(`Applied '${presetName}' template attributes!`);
+  };
+
+  const handleProceedToPreview = async () => {
+    try {
+      const values = await schemaForm.validateFields();
+      if (schemaAttributes.length === 0) {
+        message.warning("Please specify at least one attribute for the schema");
+        return;
+      }
+      setSchemaPreviewData({
+        name: values.name.trim(),
+        version: (values.version || "1.0").trim(),
+        attributes: [...schemaAttributes],
+      });
+      setSchemaCreationStep(1);
+    } catch {
+      // form validation failed
+    }
+  };
+
+  const handleBackToEditSchema = () => {
+    setSchemaCreationStep(0);
+  };
+
+  const handleFinalPublishSchema = async () => {
+    if (!schemaPreviewData) return;
+    setIsPublishingSchema(true);
     try {
       const res = await issuerService.createSchema({
-        name: values.name,
-        version: values.version || "1.0",
-        attributes: schemaAttributes,
+        name: schemaPreviewData.name,
+        version: schemaPreviewData.version || "1.0",
+        attributes: schemaPreviewData.attributes,
       });
+
       if (res?.success) {
         // Automatically provision credential definition in the background
         try {
-          await issuerService.createCredentialDefinition({
-            schemaId: res.data?.id || `schema-${Date.now()}`,
-            tag: "default",
-            supportRevocation: true,
-            revocationRegistrySize: 500,
-          });
+          const createdSchemaId = res.data?.schema_id || res.data?.schemaId || res.data?.id;
+          if (createdSchemaId) {
+            await issuerService.createCredentialDefinition({
+              schemaId: createdSchemaId,
+              tag: "default",
+              supportRevocation: false,
+              revocationRegistrySize: 1000,
+            });
+          }
         } catch {
           // gracefully proceed
         }
-        message.success(`Schema '${values.name}' published & activated on ledger!`);
+        message.success(`Schema '${schemaPreviewData.name}' registered & published on ledger!`);
         setIsSchemaModalOpen(false);
+        setSchemaCreationStep(0);
+        setSchemaPreviewData(null);
         schemaForm.resetFields();
         setSchemaAttributes(["fullName", "email", "role"]);
         loadData();
       }
     } catch (err) {
-      message.error(err.message || "Failed to publish schema");
+      message.error(err.message || "Failed to publish schema to ledger");
+    } finally {
+      setIsPublishingSchema(false);
     }
   };
 
@@ -466,42 +544,17 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
     },
   ];
 
-  const filteredActivities = activities.filter(
+  const safeActivities = Array.isArray(activities) ? activities : [];
+  const safeSchemas = Array.isArray(schemas) ? schemas : [];
+
+  const filteredActivities = safeActivities.filter(
     (a) =>
-      a.id.toLowerCase().includes(searchFilter.toLowerCase()) ||
-      a.holderDid.toLowerCase().includes(searchFilter.toLowerCase())
+      String(a?.id || a?.cred_ex_id || "").toLowerCase().includes(searchFilter.toLowerCase()) ||
+      String(a?.holderDid || a?.holder_did || a?.holderName || "").toLowerCase().includes(searchFilter.toLowerCase())
   );
 
-  const activeCredDefSchema = schemas.find((s) => s.id === selectedCredDefForIssue?.schemaId);
+  const activeCredDefSchema = safeSchemas.find((s) => s?.id === selectedCredDefForIssue?.schemaId);
   const currentAttributesForIssue = activeCredDefSchema?.attributes || ["fullName", "email"];
-
-  const currentIssuerDID = didInfo?.did || "did:sov:M6Mbe3qx7vBQAitT21A2K1";
-
-  const didDocumentObject = {
-    "@context": [
-      "https://www.w3.org/ns/did/v1",
-      "https://w3id.org/security/suites/ed25519-2020/v1",
-    ],
-    id: currentIssuerDID,
-    verificationMethod: [
-      {
-        id: `${currentIssuerDID}#key-1`,
-        type: "Ed25519VerificationKey2020",
-        controller: currentIssuerDID,
-        publicKeyMultibase: "z6MkmL7G3E2oR8BQAitT21A2K1vNx7Wj9Qp",
-      },
-    ],
-    authentication: [`${currentIssuerDID}#key-1`],
-    assertionMethod: [`${currentIssuerDID}#key-1`],
-    service: [
-      {
-        id: `${currentIssuerDID}#didcomm`,
-        type: "DIDCommMessaging",
-        serviceEndpoint: "https://ssi.cdac.in/didcomm/endpoint",
-        accept: ["didcomm/v2"],
-      },
-    ],
-  };
 
   // Activity columns
   const activityColumns = [
@@ -687,25 +740,29 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
   const didBadgeAction = (
     <div
       onClick={handleCopyDID}
-      title="Click to copy Issuer DID"
+      title={currentIssuerDID ? `Click to copy Issuer DID (${currentIssuerDID})` : "DID Not Provisioned Yet (Pending Admin Approval / Provisioning)"}
       style={{
         display: "inline-flex",
         alignItems: "center",
         gap: 6,
         padding: "4px 12px",
         borderRadius: 20,
-        background: "var(--surface-2)",
-        border: "1px solid var(--border-color)",
+        background: currentIssuerDID ? "var(--surface-2)" : "#FEF3C7",
+        border: currentIssuerDID ? "1px solid var(--border-color)" : "1px solid #F59E0B",
         fontSize: 12,
         fontWeight: 600,
-        color: "var(--text-primary)",
-        cursor: "pointer",
+        color: currentIssuerDID ? "var(--text-primary)" : "#B45309",
+        cursor: currentIssuerDID ? "pointer" : "default",
         transition: "all 0.2s ease",
       }}
     >
-      <SafetyCertificateOutlined style={{ color: "#2563EB" }} />
-      <span>DID: {currentIssuerDID.slice(0, 15)}...</span>
-      <CopyOutlined style={{ fontSize: 11, color: "var(--text-muted)" }} />
+      <SafetyCertificateOutlined style={{ color: currentIssuerDID ? "#2563EB" : "#F59E0B" }} />
+      <span>
+        {currentIssuerDID
+          ? `DID: ${currentIssuerDID.length > 22 ? `${currentIssuerDID.slice(0, 19)}...` : currentIssuerDID}`
+          : "DID: Pending Provisioning"}
+      </span>
+      {currentIssuerDID && <CopyOutlined style={{ fontSize: 11, color: "var(--text-muted)" }} />}
     </div>
   );
 
@@ -721,7 +778,11 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
             <div className="kpi-stats-row">
               <StatCard
                 title="TOTAL ISSUANCES"
-                value={activities.length || 3}
+                value={
+                  dashboardStats?.totalIssuances ??
+                  dashboardStats?.total_issuances ??
+                  activities.length
+                }
                 label="Verifiable Credentials"
                 accent={{
                   color: "#2563EB",
@@ -732,7 +793,11 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
               />
               <StatCard
                 title="ACTIVE SCHEMAS"
-                value={schemas.length || 3}
+                value={
+                  dashboardStats?.activeSchemas ??
+                  dashboardStats?.active_schemas ??
+                  schemas.length
+                }
                 label="Credential Templates"
                 accent={{
                   color: "#2563EB",
@@ -743,7 +808,11 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
               />
               <StatCard
                 title="ACTIVE CREDENTIALS"
-                value={activities.filter((a) => !a.revoked && a.revocationStatus !== "revoked").length || 3}
+                value={
+                  dashboardStats?.activeCredentials ??
+                  dashboardStats?.active_credentials ??
+                  activities.filter((a) => !a.revoked && a.revocationStatus !== "revoked").length
+                }
                 label="In-Circulation & Valid"
                 accent={{
                   color: "#2563EB",
@@ -754,7 +823,11 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
               />
               <StatCard
                 title="CONNECTED HOLDERS"
-                value={connections.length || 3}
+                value={
+                  dashboardStats?.connectedHolders ??
+                  dashboardStats?.connected_holders ??
+                  connections.length
+                }
                 label="Active Peer Connections"
                 accent={{
                   color: "#2563EB",
@@ -764,6 +837,38 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
                 }}
               />
             </div>
+
+            {/* Unprovisioned Tenant Sub-Wallet Alert */}
+            {!isWalletProvisioned && (
+              <div
+                style={{
+                  background: "#FFFBEB",
+                  border: "1px solid #FDE68A",
+                  borderRadius: 12,
+                  padding: "16px 20px",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 14,
+                }}
+              >
+                <InfoCircleOutlined style={{ color: "#D97706", fontSize: 22, marginTop: 2 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: "#92400E", marginBottom: 4 }}>
+                    Tenant Sub-Wallet & Public DID Not Provisioned
+                  </div>
+                  <div style={{ fontSize: 13, color: "#78350F", lineHeight: 1.6 }}>
+                    Your account registration status is <strong>"{user?.registrationStatus || 'APPROVED'}"</strong>, but its dedicated ACA-Py multi-tenant sub-wallet has not yet been initialized on the <strong>CDAC-SSI Ledger</strong>.
+                    <br />
+                    To provision the tenant sub-wallet and obtain a live public DID, execute the provisioning endpoint in Swagger:
+                    <div style={{ marginTop: 8, padding: "8px 12px", background: "#FEF3C7", borderRadius: 6, fontFamily: "monospace", fontSize: 12 }}>
+                      <strong>POST</strong> /api/v1/admin/registrations/{user?.userId || user?.id || "425d669b-477c-4182-854c-1611397edf1f"}/approve
+                      <br />
+                      <strong>Body:</strong> &#123; "walletName": "{(user?.username || 'asif_issuer')}_subwallet" &#125;
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Issuer Identity Bar */}
             <div
@@ -781,15 +886,19 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <SafetyCertificateOutlined style={{ color: "#2563EB", fontSize: 18 }} />
+                <SafetyCertificateOutlined style={{ color: currentIssuerDID ? "#2563EB" : "#F59E0B", fontSize: 18 }} />
                 <div>
                   <span style={{ fontSize: 11, textTransform: "uppercase", fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.5px" }}>
                     Issuer Identity (DID):
                   </span>{" "}
-                  <code style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{currentIssuerDID}</code>
+                  {currentIssuerDID ? (
+                    <code style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{currentIssuerDID}</code>
+                  ) : (
+                    <Tag color="warning" style={{ fontWeight: 700 }}>PENDING WALLET PROVISIONING</Tag>
+                  )}
                 </div>
               </div>
-              <Button size="small" icon={<CopyOutlined />} onClick={handleCopyDID}>
+              <Button size="small" icon={<CopyOutlined />} onClick={handleCopyDID} disabled={!currentIssuerDID}>
                 Copy DID
               </Button>
             </div>
@@ -801,8 +910,17 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
                 </div>
                 <div>
                   <div className="telemetry-label">Ledger Connection</div>
-                  <div className="telemetry-val">CDAC Indy Testnet</div>
-                  <div className="telemetry-sub">Status: Synced • Block #148,290</div>
+                  <div className="telemetry-val">
+                    <a
+                      href="http://10.210.13.22:9000/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "inherit", textDecoration: "none" }}
+                    >
+                      CDAC-SSI Ledger
+                    </a>
+                  </div>
+                  <div className="telemetry-sub">Status: Synced • Running on port 9000</div>
                 </div>
               </div>
 
@@ -854,7 +972,7 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
                 </Button>
               </div>
               <Table
-                dataSource={activities.slice(0, 3)}
+                dataSource={safeActivities.slice(0, 3)}
                 columns={activityColumns}
                 rowKey="id"
                 loading={loading}
@@ -948,7 +1066,7 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
                   W3C compliant schema templates authored and anchored on the decentralized ledger
                 </p>
               </div>
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsSchemaModalOpen(true)} style={{ background: "#1B365D", borderColor: "#1B365D", borderRadius: 8, fontWeight: 600 }}>
+              <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreateSchemaModal} style={{ background: "#1B365D", borderColor: "#1B365D", borderRadius: 8, fontWeight: 600 }}>
                 Create New Schema
               </Button>
             </div>
@@ -1136,15 +1254,15 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
           onCancel={() => setIsIssueModalOpen(false)}
           footer={null}
           width={650}
-          destroyOnClose
+          destroyOnHidden
         >
           <Form
             form={issueForm}
             layout="vertical"
             onFinish={handleIssueCredential}
             initialValues={{
-              credentialDefinitionId: credDefs[0]?.id || "cred-def-1",
-              holderDid: connections[0]?.their_did || connections[0]?.holderDid || "did:sov:WRfXPg8EcRocfdZA69HP56",
+              credentialDefinitionId: credDefs[0]?.id || "",
+              holderDid: connections[0]?.connection_id || connections[0]?.their_did || "",
             }}
             style={{ marginTop: 16 }}
           >
@@ -1164,13 +1282,13 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
 
             <Form.Item
               name="holderDid"
-              label="Recipient Holder Connection / DID"
+              label="Recipient Holder Connection"
               rules={[{ required: true, message: "Please select recipient" }]}
             >
               <Select placeholder="Select connected holder">
                 {connections.map((conn) => (
-                  <Option key={conn.connection_id || conn.id} value={conn.their_did || conn.holderDid}>
-                    {conn.their_label || conn.holderName || "Connected Peer"} — {conn.their_did || conn.holderDid}
+                  <Option key={conn.connection_id || conn.id} value={conn.connection_id || conn.id || conn.their_did}>
+                    {conn.their_label || conn.holderName || "Connected Peer"} {conn.their_did ? `(${conn.their_did.slice(0, 16)}...)` : `[${conn.connection_id?.slice(0, 8)}...]`}
                   </Option>
                 ))}
               </Select>
@@ -1205,64 +1323,259 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
           </Form>
         </Modal>
 
-        {/* Create Schema Modal */}
+        {/* Create Schema Modal with Preview Step */}
         <Modal
           title={
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <FileTextOutlined style={{ color: "#06B6D4" }} />
-              <span>Create New W3C Credential Schema</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <FileTextOutlined style={{ color: "#2563EB", fontSize: 20 }} />
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>
+                  {schemaCreationStep === 0 ? "Create New Credential Schema" : "Preview Schema Before Ledger Registration"}
+                </div>
+                <div style={{ fontSize: 12, color: "#64748b", fontWeight: 400 }}>
+                  {schemaCreationStep === 0
+                    ? "Configure schema definition, claim attributes, and version"
+                    : "Verify all schema claims before anchoring to the immutable ledger"}
+                </div>
+              </div>
             </div>
           }
           open={isSchemaModalOpen}
-          onCancel={() => setIsSchemaModalOpen(false)}
+          onCancel={handleCloseCreateSchemaModal}
           footer={null}
-          destroyOnClose
+          width={720}
+          centered
+          className="schema-details-modal"
+          destroyOnHidden
         >
-          <Form form={schemaForm} layout="vertical" onFinish={handleCreateSchema} style={{ marginTop: 16 }}>
-            <Form.Item name="name" label="Schema Name" rules={[{ required: true, message: "Please input schema name" }]}>
-              <Input placeholder="e.g. Employee ID, Security Clearance, Degree Certificate" />
-            </Form.Item>
+          <div className="schema-modal-scrollable-body">
+            <Steps
+            current={schemaCreationStep}
+            size="small"
+            style={{ marginBottom: 20, marginTop: 8 }}
+            items={[
+              {
+                title: "1. Define Schema",
+                description: "Attributes & Metadata",
+              },
+              {
+                title: "2. Preview & Register",
+                description: "Verify before anchoring",
+              },
+            ]}
+          />
 
-            <Form.Item name="version" label="Version" initialValue="1.0">
-              <Input placeholder="1.0" />
-            </Form.Item>
+          {schemaCreationStep === 0 ? (
+            <Form form={schemaForm} layout="vertical" onFinish={handleProceedToPreview} style={{ marginTop: 12 }}>
+              <div style={{ marginBottom: 16, background: "#f8fafc", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 6 }}>
+                  Quick Schema Presets:
+                </div>
+                <Space wrap size="small">
+                  <Button size="small" onClick={() => applyAttributePreset("student")}>
+                    🎓 Degree / Education
+                  </Button>
+                  <Button size="small" onClick={() => applyAttributePreset("employee")}>
+                    💼 Corporate Employee
+                  </Button>
+                  <Button size="small" onClick={() => applyAttributePreset("citizen")}>
+                    🏛️ Citizen ID / KYC
+                  </Button>
+                </Space>
+              </div>
 
-            <div style={{ marginBottom: 8 }}>
-              <label style={{ display: "block", marginBottom: 6, fontWeight: 500 }}>Schema Attributes:</label>
-              <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                <Input
-                  placeholder="Add attribute (e.g., department, gpa, clearanceLevel)"
-                  value={newAttributeInput}
-                  onChange={(e) => setNewAttributeInput(e.target.value)}
-                  onPressEnter={handleAddAttribute}
-                />
-                <Button type="dashed" onClick={handleAddAttribute} icon={<PlusOutlined />}>
-                  Add
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
+                <Form.Item
+                  name="name"
+                  label="Schema Name"
+                  rules={[{ required: true, message: "Please input schema name" }]}
+                >
+                  <Input placeholder="e.g. Employee ID, Degree Certificate" />
+                </Form.Item>
+
+                <Form.Item
+                  name="version"
+                  label="Version"
+                  initialValue="1.0"
+                  rules={[{ required: true, message: "Please enter version" }]}
+                >
+                  <Input placeholder="1.0" />
+                </Form.Item>
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <label style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>
+                    Credential Attributes ({schemaAttributes.length})
+                  </label>
+                  <span style={{ fontSize: 12, color: "#64748b" }}>Press Enter or click Add</span>
+                </div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                  <Input
+                    placeholder="Add attribute claim (e.g. employeeId, department, gpa, clearanceLevel)"
+                    value={newAttributeInput}
+                    onChange={(e) => setNewAttributeInput(e.target.value)}
+                    onPressEnter={(e) => {
+                      e.preventDefault();
+                      handleAddAttribute();
+                    }}
+                  />
+                  <Button type="dashed" onClick={handleAddAttribute} icon={<PlusOutlined />}>
+                    Add Claim
+                  </Button>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    padding: 12,
+                    background: "#f1f5f9",
+                    borderRadius: 8,
+                    border: "1px dashed #cbd5e1",
+                    minHeight: 52,
+                    alignItems: "center",
+                  }}
+                >
+                  {schemaAttributes.length === 0 ? (
+                    <span style={{ fontSize: 12, color: "#94a3b8" }}>No attributes added yet. Add at least one attribute.</span>
+                  ) : (
+                    schemaAttributes.map((attr) => (
+                      <Tag
+                        key={attr}
+                        closable
+                        onClose={() => handleRemoveAttribute(attr)}
+                        color="blue"
+                        style={{ fontSize: 13, padding: "4px 10px", borderRadius: 6, fontWeight: 500 }}
+                      >
+                        {attr}
+                      </Tag>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24 }}>
+                <Button onClick={handleCloseCreateSchemaModal}>Cancel</Button>
+                <Button type="primary" htmlType="submit" icon={<ArrowRightOutlined />} style={{ background: "#2563EB", borderColor: "#2563EB" }}>
+                  Proceed to Schema Preview
                 </Button>
               </div>
-
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 8, background: "rgba(0,0,0,0.02)", borderRadius: 8 }}>
-                {schemaAttributes.map((attr) => (
-                  <Tag
-                    key={attr}
-                    closable
-                    onClose={() => handleRemoveAttribute(attr)}
-                    color="blue"
-                    style={{ fontSize: 13, padding: "3px 8px" }}
-                  >
-                    {attr}
+            </Form>
+          ) : (
+            <div style={{ marginTop: 12 }}>
+              {/* SECTION 1: BASIC INFORMATION PREVIEW */}
+              <div className="schema-section-card">
+                <div className="schema-section-header">
+                  <span className="schema-section-title">
+                    <ApartmentOutlined style={{ color: "#2563eb" }} />
+                    1. Basic Information
+                  </span>
+                  <Tag color="processing" icon={<ClockCircleOutlined />} style={{ borderRadius: 12, fontWeight: 600 }}>
+                    READY TO ANCHOR
                   </Tag>
-                ))}
+                </div>
+                <div className="schema-section-content">
+                  <div className="schema-basic-grid">
+                    <div className="schema-info-item">
+                      <span className="schema-info-label">Schema Name</span>
+                      <span className="schema-info-value" style={{ fontSize: 15, color: "#1e3a8a" }}>
+                        {schemaPreviewData?.name}
+                      </span>
+                    </div>
+
+                    <div className="schema-info-item">
+                      <span className="schema-info-label">Version</span>
+                      <span className="schema-info-value">
+                        <Tag color="blue" style={{ borderRadius: 6, fontWeight: 600, fontSize: 12 }}>
+                          v{schemaPreviewData?.version}
+                        </Tag>
+                      </span>
+                    </div>
+
+                    <div className="schema-info-item" style={{ gridColumn: "1 / -1" }}>
+                      <span className="schema-info-label">Issuer Sovereign DID</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+                        <code style={{ fontSize: 12, color: "#0369a1", background: "#f0f9ff", padding: "2px 8px", borderRadius: 4 }}>
+                          {currentIssuerDID || "did:sov:JuGgR7FBWxcAPhPG6kgZbU"}
+                        </code>
+                        <Tag color="cyan" style={{ fontSize: 11, borderRadius: 10 }}>
+                          Author DID
+                        </Tag>
+                      </div>
+                    </div>
+
+                    <div className="schema-info-item" style={{ gridColumn: "1 / -1" }}>
+                      <span className="schema-info-label">Target Distributed Ledger</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+                        <span style={{ fontSize: 13, color: "#0f172a", fontWeight: 600 }}>
+                          <GlobalOutlined style={{ color: "#0284c7", marginRight: 6 }} />
+                          CDAC-SSI Ledger (10.210.13.22:9000)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 2: CREDENTIAL ATTRIBUTES (PROMINENT!) */}
+              <div className="schema-section-card attributes-prominent-card">
+                <div className="schema-section-header attributes-prominent-header">
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <FieldStringOutlined style={{ color: "#2563eb", fontSize: 17 }} />
+                    <span className="schema-section-title attributes-prominent-title">
+                      2. Credential Attributes
+                    </span>
+                    <span className="attributes-badge-counter">
+                      {schemaPreviewData?.attributes?.length || 0} Defined Claims
+                    </span>
+                  </div>
+                </div>
+
+                <div className="schema-section-content">
+                  <div className="attributes-grid-container">
+                    {schemaPreviewData?.attributes?.map((attr, idx) => (
+                      <div key={idx} className="attribute-item-card">
+                        <div className="attribute-pill-left">
+                          <span className="attribute-index-tag">#{idx + 1}</span>
+                          <span className="attribute-name-text">{attr}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* IMMUTABLE LEDGER NOTICE */}
+              <Alert
+                message="Immutable Ledger Verification Notice"
+                description="Once this schema is anchored on the distributed ledger, its attributes and name cannot be modified or deleted. Please ensure all required claim fields are accurate before confirming."
+                type="warning"
+                showIcon
+                style={{ borderRadius: 8, marginBottom: 20 }}
+              />
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <Button icon={<ArrowLeftOutlined />} onClick={handleBackToEditSchema}>
+                  Back to Edit
+                </Button>
+                <Space>
+                  <Button onClick={handleCloseCreateSchemaModal}>Cancel</Button>
+                  <Button
+                    type="primary"
+                    loading={isPublishingSchema}
+                    onClick={handleFinalPublishSchema}
+                    icon={<SafetyCertificateOutlined />}
+                    style={{ background: "#2563EB", borderColor: "#2563EB", fontWeight: 600, padding: "0 20px" }}
+                  >
+                    Confirm & Register on Ledger
+                  </Button>
+                </Space>
               </div>
             </div>
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24 }}>
-              <Button onClick={() => setIsSchemaModalOpen(false)}>Cancel</Button>
-              <Button type="primary" htmlType="submit">
-                Register Schema on Ledger
-              </Button>
-            </div>
-          </Form>
+          )}
+          </div>
         </Modal>
 
         {/* Create Credential Definition Modal */}
@@ -1276,7 +1589,7 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
           open={isCredDefModalOpen}
           onCancel={() => setIsCredDefModalOpen(false)}
           footer={null}
-          destroyOnClose
+          destroyOnHidden
         >
           <Form
             form={credDefForm}
@@ -1329,7 +1642,7 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
           onOk={handleConfirmRevoke}
           okText="Confirm Revocation"
           okButtonProps={{ danger: true }}
-          destroyOnClose
+          destroyOnHidden
         >
           <p>
             Are you sure you want to revoke credential <strong>{selectedRecordToRevoke?.id}</strong>?

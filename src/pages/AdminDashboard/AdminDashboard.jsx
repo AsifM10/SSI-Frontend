@@ -46,6 +46,7 @@ import {
 } from "@ant-design/icons";
 import DashboardLayout from "../../layouts/DashboardLayout/DashboardLayout";
 import StatCard from "../../components/cards/StatCard/StatCard";
+import EmailOtpModal from "../../components/modals/EmailOtpModal/EmailOtpModal";
 import { adminService } from "../../services/apiClient";
 import "./AdminDashboard.css";
 
@@ -83,6 +84,14 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
   const [isTenantModalOpen, setIsTenantModalOpen] = useState(false);
   const [selectedAuditLog, setSelectedAuditLog] = useState(null);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
+
+  // Email OTP modal state in AdminDashboard
+  const [adminOtpModalData, setAdminOtpModalData] = useState({
+    open: false,
+    email: "",
+    userId: "",
+    title: "Verify Email OTP",
+  });
 
   // Review Organization Request Modal state
   const [selectedRequestForReview, setSelectedRequestForReview] = useState(null);
@@ -160,22 +169,98 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
     setIsReviewModalOpen(true);
   };
 
+  const formatApprovalError = (errOrMsg, record, targetUserId) => {
+    const rawMsg =
+      errOrMsg?.friendlyMessage ||
+      errOrMsg?.response?.data?.message ||
+      errOrMsg?.response?.data?.error ||
+      errOrMsg?.message ||
+      errOrMsg?.details ||
+      (typeof errOrMsg === "string" ? errOrMsg : "");
+
+    const matchedUser =
+      record ||
+      users.find((u) => u.id === targetUserId || u.userId === targetUserId) ||
+      reservations.find((r) => r.reservation_id === targetUserId || r.userId === targetUserId);
+
+    const displayName =
+      matchedUser?.username ||
+      matchedUser?.contact_name ||
+      matchedUser?.tenant_name ||
+      matchedUser?.email?.split("@")[0] ||
+      (targetUserId ? String(targetUserId).slice(0, 8) : "User");
+
+    const lower = (rawMsg || "").toLowerCase();
+
+    // Check if the error is regarding email or identity verification
+    if (
+      lower.includes("identity verification") ||
+      lower.includes("verify their email") ||
+      lower.includes("ekyc") ||
+      lower.includes("epramaan") ||
+      lower.includes("verification is still pending") ||
+      lower.includes("verification pending") ||
+      lower.includes("email approval pending")
+    ) {
+      return `${displayName} email verification pending`;
+    }
+
+    if (lower.includes("already approved") || lower.includes("already registered")) {
+      return `${displayName}: Account already approved and active`;
+    }
+
+    // If error contains user UUID, replace it with readable username
+    if (targetUserId && rawMsg.includes(targetUserId)) {
+      return rawMsg.replace(new RegExp(targetUserId, "gi"), displayName);
+    }
+
+    return rawMsg || `${displayName}: Failed to approve user registration`;
+  };
+
   const handleApproveRequest = async (record) => {
     if (!record) return;
     setReviewActionProcessing(true);
     try {
       const res = await adminService.approveReservation(
-        record.reservation_id,
-        "Approved by Governance Administrator. Dedicated tenant enclave provisioned."
+        record.userId || record.id || record.reservation_id,
+        {
+          walletName: `${(record.tenant_name || record.username || "tenant").toLowerCase().replace(/[^a-z0-9_-]/g, "_")}_subwallet`,
+          notes: "Approved by Governance Administrator. Dedicated tenant enclave provisioned.",
+          userId: record.userId || record.id || record.reservation_id,
+        },
+        record
       );
-      if (res?.success) {
-        message.success(`Request approved! Tenant enclave provisioned for ${record.tenant_name}.`);
+      if (res?.success || res?.status === 200 || res?.data) {
+        message.success(`Request approved! Tenant enclave provisioned for ${record.tenant_name || "applicant"}.`);
         setIsReviewModalOpen(false);
         setSelectedRequestForReview(null);
         await loadData();
+      } else {
+        const errMsg = formatApprovalError(res?.message, record, record.userId || record.id || record.reservation_id);
+        message.error(errMsg);
+        if (errMsg.toLowerCase().includes("email verification pending")) {
+          const userEmail = record.email || record.contact_email || record.username || "";
+          setAdminOtpModalData({
+            open: true,
+            email: userEmail,
+            userId: record.userId || record.id || record.reservation_id,
+            title: "Verify Email OTP",
+          });
+        }
       }
-    } catch {
-      message.error("Failed to approve organization request");
+    } catch (err) {
+      console.error("Failed to approve organization request:", err);
+      const errMsg = formatApprovalError(err, record, record?.userId || record?.id || record?.reservation_id);
+      message.error(errMsg);
+      if (errMsg.toLowerCase().includes("email verification pending")) {
+        const userEmail = record?.email || record?.contact_email || record?.username || "";
+        setAdminOtpModalData({
+          open: true,
+          email: userEmail,
+          userId: record?.userId || record?.id || record?.reservation_id,
+          title: "Verify Email OTP",
+        });
+      }
     } finally {
       setReviewActionProcessing(false);
     }
@@ -186,17 +271,24 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
     const reason = rejectionReasonInput.trim() || "Organization failed governance verification criteria.";
     setReviewActionProcessing(true);
     try {
-      const res = await adminService.denyReservation(record.reservation_id, reason);
-      if (res?.success) {
+      const res = await adminService.denyReservation(
+        record.userId || record.id || record.reservation_id,
+        reason,
+        record
+      );
+      if (res?.success || res?.status === 200) {
         message.info(`Request for ${record.tenant_name} has been rejected.`);
         setIsReviewModalOpen(false);
         setSelectedRequestForReview(null);
         setShowRejectInput(false);
         setRejectionReasonInput("");
         await loadData();
+      } else {
+        message.error(res?.message || "Failed to reject organization request");
       }
-    } catch {
-      message.error("Failed to reject organization request");
+    } catch (err) {
+      console.error("Failed to reject organization request:", err);
+      message.error(err?.message || "Failed to reject organization request");
     } finally {
       setReviewActionProcessing(false);
     }
@@ -246,24 +338,80 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
   const handleCreateUser = async (values) => {
     try {
       const res = await adminService.saveUser(values);
-      if (res?.success) {
+      if (res?.success || res?.status === 200 || res?.data) {
         message.success(`User ${values.username} registered successfully!`);
         setIsUserModalOpen(false);
         userForm.resetFields();
         await loadData();
+
+        const cleanEmail = values.email || (values.username?.includes("@") ? values.username : `${values.username}@cdac.in`);
+        const createdUserId = res?.data?.userId || res?.data?.id || res?.userId || "";
+        setAdminOtpModalData({
+          open: true,
+          email: cleanEmail,
+          userId: createdUserId,
+          title: "Verify Email OTP",
+        });
+      } else {
+        message.error(res?.message || "Failed to create user");
       }
-    } catch {
-      message.error("Failed to create user");
+    } catch (err) {
+      message.error(err?.message || "Failed to create user");
     }
   };
 
-  const handleUpdateUserStatus = async (userId, newStatus) => {
+  const handleUpdateUserStatus = async (userId, newStatus, record) => {
     try {
-      await adminService.updateUserStatus(userId, newStatus);
+      if (newStatus === "active" || newStatus === "approved") {
+        const rawTenant = record?.organization || record?.tenant_name || record?.username || "subwallet";
+        const cleanWallet = String(rawTenant).toLowerCase().replace(/[^a-z0-9_-]/g, "_").slice(0, 32);
+        const walletName = cleanWallet.endsWith("_subwallet") || cleanWallet.endsWith("_wallet")
+          ? cleanWallet
+          : `${cleanWallet}_subwallet`;
+
+        const res = await adminService.approveReservation(
+          userId,
+          {
+            walletName,
+            notes: "Approved by Governance Administrator. Dedicated tenant enclave provisioned.",
+            userId,
+          },
+          record
+        );
+        if (res?.success || res?.status === 200 || res?.data) {
+          message.success(`User approved and provisioned successfully!`);
+          await loadData();
+        } else {
+          const errMsg = formatApprovalError(res?.message, record, userId);
+          message.error(errMsg);
+          if (errMsg.toLowerCase().includes("email verification pending")) {
+            const userEmail = record?.email || record?.contact_email || record?.username || "";
+            setAdminOtpModalData({
+              open: true,
+              email: userEmail,
+              userId: userId,
+              title: "Verify Email OTP",
+            });
+          }
+        }
+        return;
+      }
+      await adminService.updateUserStatus(userId, newStatus, record);
       message.success(`User account status updated to ${newStatus}`);
       await loadData();
-    } catch {
-      message.error("Failed to update user status");
+    } catch (err) {
+      console.error("Failed to update user status:", err);
+      const errMsg = formatApprovalError(err, record, userId);
+      message.error(errMsg);
+      if (errMsg.toLowerCase().includes("email verification pending")) {
+        const userEmail = record?.email || record?.contact_email || record?.username || "";
+        setAdminOtpModalData({
+          open: true,
+          email: userEmail,
+          userId: userId,
+          title: "Verify Email OTP",
+        });
+      }
     }
   };
 
@@ -333,18 +481,24 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
   }, [serverConfig, pluginSearch]);
 
   const filteredAuditLogs = useMemo(() => {
-    return auditLogs.filter((log) => {
-      const q = auditSearch.toLowerCase();
+    const list = Array.isArray(auditLogs) ? auditLogs : [];
+    return list.filter((log) => {
+      const q = (auditSearch || "").toLowerCase();
+      const detailStr =
+        typeof log.details === "object" && log.details !== null
+          ? JSON.stringify(log.details)
+          : String(log.details || "");
+
       const matchesQuery =
-        (log.id || "").toLowerCase().includes(q) ||
-        (log.event || "").toLowerCase().includes(q) ||
-        (log.user || "").toLowerCase().includes(q) ||
-        (log.details || "").toLowerCase().includes(q) ||
-        (log.target || "").toLowerCase().includes(q);
+        String(log.id || "").toLowerCase().includes(q) ||
+        String(log.event || "").toLowerCase().includes(q) ||
+        String(log.user || "").toLowerCase().includes(q) ||
+        detailStr.toLowerCase().includes(q) ||
+        String(log.target || "").toLowerCase().includes(q);
 
       const matchesCategory =
         auditCategoryFilter === "all" ||
-        (log.category || "").toLowerCase() === auditCategoryFilter.toLowerCase();
+        String(log.category || "").toLowerCase() === auditCategoryFilter.toLowerCase();
 
       return matchesQuery && matchesCategory;
     });
@@ -424,10 +578,33 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
       title: "Contact Person",
       dataIndex: "contact_name",
       key: "contact_name",
-      width: 200,
+      width: 220,
       render: (name, r) => (
         <div>
-          <div style={{ fontSize: 13 }}>{name}</div>
+          <div style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+            <span>{name}</span>
+            {r.emailVerified ? (
+              <Tag color="success" style={{ fontSize: 10, lineHeight: "16px", padding: "0 4px" }}>Verified</Tag>
+            ) : (
+              <Tooltip title="Click to verify Email OTP">
+                <Tag
+                  color="warning"
+                  style={{ fontSize: 10, lineHeight: "16px", padding: "0 4px", cursor: "pointer" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setAdminOtpModalData({
+                      open: true,
+                      email: r.contact_email || r.email || r.username,
+                      userId: r.userId || r.reservation_id,
+                      title: "Verify Email OTP",
+                    });
+                  }}
+                >
+                  Verify OTP ↗
+                </Tag>
+              </Tooltip>
+            )}
+          </div>
           <div className="mono-subtext">{r.contact_email}</div>
         </div>
       ),
@@ -465,18 +642,35 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
     {
       title: "Actions",
       key: "actions",
-      width: 140,
+      width: 180,
       align: "right",
       render: (_, record) => (
-        <Button
-          type={record.state === "pending" ? "primary" : "default"}
-          size="small"
-          icon={<EyeOutlined />}
-          onClick={() => handleOpenReviewModal(record)}
-          style={record.state === "pending" ? { background: "#1B365D", borderColor: "#1B365D" } : {}}
-        >
-          Review Request
-        </Button>
+        <Space size="small">
+          <Button
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => handleOpenReviewModal(record)}
+          >
+            Review
+          </Button>
+          {record.state === "pending" && (
+            <Popconfirm
+              title="Approve organization onboarding?"
+              description="This will verify email and provision their dedicated tenant wallet."
+              onConfirm={() => handleApproveRequest(record)}
+              okText="Approve & Provision"
+              cancelText="Cancel"
+            >
+              <Button
+                size="small"
+                type="primary"
+                style={{ background: "#10B981", borderColor: "#10B981" }}
+              >
+                Approve
+              </Button>
+            </Popconfirm>
+          )}
+        </Space>
       ),
     },
   ];
@@ -494,11 +688,34 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
       title: "Identity & Name",
       dataIndex: "username",
       key: "username",
-      width: 220,
+      width: 240,
       render: (u, r) => (
         <div>
-          <strong style={{ color: "var(--text-primary)" }}>{r.contact_name || u}</strong>
-          <div className="mono-subtext">{u}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <strong style={{ color: "var(--text-primary)" }}>{r.contact_name || u}</strong>
+            {r.emailVerified ? (
+              <Tag color="success" style={{ fontSize: 10, lineHeight: "16px", padding: "0 4px" }}>Verified</Tag>
+            ) : (
+              <Tooltip title="Click to verify Email OTP">
+                <Tag
+                  color="warning"
+                  style={{ fontSize: 10, lineHeight: "16px", padding: "0 4px", cursor: "pointer" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setAdminOtpModalData({
+                      open: true,
+                      email: r.email || r.username,
+                      userId: r.id,
+                      title: "Verify Email OTP",
+                    });
+                  }}
+                >
+                  Verify OTP ↗
+                </Tag>
+              </Tooltip>
+            )}
+          </div>
+          <div className="mono-subtext">{r.email || u}</div>
         </div>
       ),
     },
@@ -553,7 +770,7 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
             <Popconfirm
               title="Suspend this user account?"
               description="The user will temporarily lose login access to their portal."
-              onConfirm={() => handleUpdateUserStatus(record.id, "suspended")}
+              onConfirm={() => handleUpdateUserStatus(record.id, "suspended", record)}
               okText="Suspend Account"
               okType="danger"
               cancelText="Cancel"
@@ -564,14 +781,18 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
             </Popconfirm>
           ) : (
             <Popconfirm
-              title="Activate this user account?"
-              description="The user will regain portal access with their assigned role."
-              onConfirm={() => handleUpdateUserStatus(record.id, "active")}
-              okText="Activate Account"
+              title={record.status === "pending" || record.registrationStatus !== "APPROVED" ? "Approve user registration?" : "Activate user account?"}
+              description={
+                record.status === "pending" || record.registrationStatus !== "APPROVED"
+                  ? "This will verify email requirement and provision a dedicated tenant enclave on the CDAC-SSI ledger."
+                  : "The user will regain portal access with their assigned role."
+              }
+              onConfirm={() => handleUpdateUserStatus(record.id, "active", record)}
+              okText={record.status === "pending" || record.registrationStatus !== "APPROVED" ? "Approve & Provision" : "Activate Account"}
               cancelText="Cancel"
             >
               <Button size="small" type="primary" style={{ background: "#10B981", borderColor: "#10B981" }}>
-                Activate
+                {record.status === "pending" || record.registrationStatus !== "APPROVED" ? "Approve" : "Activate"}
               </Button>
             </Popconfirm>
           )}
@@ -635,7 +856,11 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
       title: "Ledger Connectivity",
       key: "ledger",
       width: 160,
-      render: () => <Tag color="cyan">CDAC Indy Testnet</Tag>,
+      render: () => (
+        <a href="http://10.210.13.22:9000/" target="_blank" rel="noopener noreferrer">
+          <Tag color="cyan">CDAC-SSI Ledger</Tag>
+        </a>
+      ),
     },
     {
       title: "API Credential Status",
@@ -714,18 +939,29 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
       dataIndex: "details",
       key: "details",
       width: 260,
-      render: (d) => (
-        <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-          {d}
-        </span>
-      ),
+      render: (d) => {
+        const text = typeof d === "object" && d !== null ? JSON.stringify(d) : String(d || "Action executed");
+        return (
+          <Tooltip title={text}>
+            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+              {text.length > 55 ? `${text.slice(0, 55)}...` : text}
+            </span>
+          </Tooltip>
+        );
+      },
     },
     {
       title: "Timestamp",
       dataIndex: "timestamp",
       key: "timestamp",
       width: 160,
-      render: (ts) => <span style={{ whiteSpace: "nowrap", fontSize: 12 }}>{new Date(ts).toLocaleString()}</span>,
+      render: (ts) => {
+        try {
+          return <span style={{ whiteSpace: "nowrap", fontSize: 12 }}>{ts ? new Date(ts).toLocaleString() : "—"}</span>;
+        } catch {
+          return <span style={{ whiteSpace: "nowrap", fontSize: 12 }}>{String(ts || "—")}</span>;
+        }
+      },
     },
     {
       title: "Action",
@@ -764,8 +1000,16 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
       }}
     >
       <SafetyCertificateOutlined style={{ color: "#2563EB" }} />
-      <span>Ledger: CDAC Indy Testnet</span>
-      <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10B981", display: "inline-block" }} />
+      <a
+        href="http://10.210.13.22:9000/"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ color: "inherit", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
+        title="Open CDAC-SSI Ledger Explorer (http://10.210.13.22:9000/)"
+      >
+        <span>Ledger: CDAC-SSI Ledger</span>
+        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10B981", display: "inline-block" }} />
+      </a>
     </div>
   );
 
@@ -1098,7 +1342,7 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
                 </div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                   <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                    Development Simulation Data
+                    Live CDAC-SSI Node Telemetry
                   </span>
                   <Button onClick={loadData} icon={<ReloadOutlined />} size="small">
                     Refresh Diagnostics
@@ -1148,8 +1392,26 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
                     <span className="infra-service-title">Distributed Ledger</span>
                     <Tag color="cyan" icon={<GlobalOutlined />}>CONNECTED</Tag>
                   </div>
-                  <div className="infra-health-desc">CDAC Indy Testnet Consortium Node</div>
-                  <div className="infra-health-meta">Endorser DID Anchoring Synchronized</div>
+                  <div className="infra-health-desc">
+                    <a
+                      href="http://10.210.13.22:9000/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "inherit", textDecoration: "none" }}
+                    >
+                      CDAC-SSI Ledger Consortium Node
+                    </a>
+                  </div>
+                  <div className="infra-health-meta">
+                    <a
+                      href="http://10.210.13.22:9000/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "#2563EB" }}
+                    >
+                      http://10.210.13.22:9000/
+                    </a>
+                  </div>
                 </div>
 
                 <div className="infra-health-card">
@@ -1212,16 +1474,35 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
                                 render: (t) => <span className="mono-badge">{t}</span>,
                               },
                               {
-                                title: "Endorser Alias",
+                                title: "Endorser / Ledger",
                                 dataIndex: "endorser_alias",
                                 key: "endorser_alias",
-                                render: (a) => <strong>{a}</strong>,
+                                render: (a, r) => (
+                                  <a
+                                    href={r.endorser_url || "http://10.210.13.22:9000/"}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ fontWeight: 600, color: "inherit" }}
+                                  >
+                                    {a || "CDAC-SSI Ledger"}
+                                  </a>
+                                ),
                               },
                               {
-                                title: "Endorser DID",
+                                title: "Ledger Explorer / DID",
                                 dataIndex: "endorser_did",
                                 key: "endorser_did",
-                                render: (d) => <span className="mono-subtext">{d}</span>,
+                                render: (d, r) => (
+                                  <a
+                                    href={r.endorser_url || "http://10.210.13.22:9000/"}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mono-subtext"
+                                    style={{ color: "#2563EB" }}
+                                  >
+                                    {r.endorser_url || d || "http://10.210.13.22:9000/"}
+                                  </a>
+                                ),
                               },
                             ]}
                             rowKey="id"
@@ -1344,7 +1625,7 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
           }}
           width={680}
           footer={null}
-          destroyOnClose
+          destroyOnHidden
         >
           {selectedRequestForReview && (
             <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 16 }}>
@@ -1398,10 +1679,28 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
                 <Descriptions.Item label="Contact Phone">
                   {selectedRequestForReview.contact_phone || "Not specified"}
                 </Descriptions.Item>
+                <Descriptions.Item label="Email Verification">
+                  {selectedRequestForReview.emailVerified ? (
+                    <Tag color="success" icon={<CheckCircleOutlined />}>Verified</Tag>
+                  ) : (
+                    <Tag color="error" icon={<ClockCircleOutlined />}>Unverified</Tag>
+                  )}
+                </Descriptions.Item>
                 <Descriptions.Item label="Requested Role">
                   {renderRoleTag(selectedRequestForReview.requested_role)}
                 </Descriptions.Item>
               </Descriptions>
+
+              {/* Warning if email is unverified */}
+              {!selectedRequestForReview.emailVerified && (
+                <Alert
+                  message="Email Verification Required"
+                  description="This applicant has not completed email verification. The approval endpoint (POST /api/v1/admin/registrations/:userId/approve) requires email verification prior to sub-wallet provisioning."
+                  type="warning"
+                  showIcon
+                  style={{ borderRadius: 8, marginTop: 10 }}
+                />
+              )}
 
               {/* Requested Capabilities */}
               <div>
@@ -1470,6 +1769,26 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
                 {selectedRequestForReview.state === "pending" && (
                   <Space size="middle">
                     <Button
+                      icon={<MailOutlined style={{ color: "#2563EB" }} />}
+                      onClick={() => {
+                        const applicantEmail =
+                          selectedRequestForReview.email ||
+                          selectedRequestForReview.contact_email ||
+                          selectedRequestForReview.username ||
+                          "";
+                        setAdminOtpModalData({
+                          open: true,
+                          email: applicantEmail,
+                          userId: selectedRequestForReview.userId || selectedRequestForReview.id || selectedRequestForReview.reservation_id,
+                          title: "Verify Email OTP",
+                        });
+                      }}
+                      style={{ borderColor: "#2563EB", color: "#2563EB", fontWeight: 500 }}
+                    >
+                      Verify Email OTP
+                    </Button>
+
+                    <Button
                       icon={<QuestionCircleOutlined />}
                       onClick={() => handleRequestMoreInfo(selectedRequestForReview)}
                     >
@@ -1526,7 +1845,7 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
               Got It
             </Button>,
           ]}
-          destroyOnClose
+          destroyOnHidden
         >
           <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 12 }}>
             <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
@@ -1568,7 +1887,7 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
               <div>
                 <strong style={{ color: "var(--text-primary)" }}>Ledger Capability & Endorsement</strong>
                 <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--text-secondary)" }}>
-                  Issuer tenants are granted ledger publication authority to anchor schema definitions and public DIDs onto the CDAC Indy ledger.
+                  Issuer tenants are granted ledger publication authority to anchor schema definitions and public DIDs onto the CDAC-SSI Ledger (http://10.210.13.22:9000/).
                 </p>
               </div>
             </div>
@@ -1598,7 +1917,7 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
           open={isTenantModalOpen}
           onCancel={() => setIsTenantModalOpen(false)}
           footer={null}
-          destroyOnClose
+          destroyOnHidden
         >
           <Form
             form={tenantConfigForm}
@@ -1675,8 +1994,25 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
             <Button key="close" onClick={() => setSelectedUserForView(null)}>
               Close
             </Button>,
-          ]}
-          destroyOnClose
+            (selectedUserForView?.status !== "active" || selectedUserForView?.registrationStatus !== "APPROVED") && (
+              <Popconfirm
+                key="approve"
+                title="Approve user registration?"
+                description="This will verify email requirement and provision a dedicated tenant wallet on the ledger."
+                onConfirm={async () => {
+                  await handleUpdateUserStatus(selectedUserForView.id, "active", selectedUserForView);
+                  setSelectedUserForView(null);
+                }}
+                okText="Approve & Provision"
+                cancelText="Cancel"
+              >
+                <Button type="primary" style={{ background: "#10B981", borderColor: "#10B981" }}>
+                  Approve Registration
+                </Button>
+              </Popconfirm>
+            ),
+          ].filter(Boolean)}
+          destroyOnHidden
         >
           {selectedUserForView && (
             <Descriptions bordered column={1} size="small" style={{ borderRadius: 8, marginTop: 12 }}>
@@ -1694,6 +2030,30 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
               </Descriptions.Item>
               <Descriptions.Item label="System Role">
                 {renderRoleTag(selectedUserForView.role)}
+              </Descriptions.Item>
+              <Descriptions.Item label="Email Verification">
+                {selectedUserForView.emailVerified ? (
+                  <Tag color="success">Verified</Tag>
+                ) : (
+                  <Space>
+                    <Tag color="warning">Email Unverified</Tag>
+                    <Button
+                      size="small"
+                      type="link"
+                      icon={<MailOutlined />}
+                      onClick={() => {
+                        setAdminOtpModalData({
+                          open: true,
+                          email: selectedUserForView.email || selectedUserForView.username,
+                          userId: selectedUserForView.id,
+                          title: "Verify Email OTP",
+                        });
+                      }}
+                    >
+                      Verify Email OTP
+                    </Button>
+                  </Space>
+                )}
               </Descriptions.Item>
               <Descriptions.Item label="Account Status">
                 <Tag color={selectedUserForView.status === "active" ? "success" : "warning"}>
@@ -1715,27 +2075,44 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
           open={isUserModalOpen}
           onCancel={() => setIsUserModalOpen(false)}
           footer={null}
-          destroyOnClose
+          destroyOnHidden
         >
+          <div style={{ marginBottom: 14, padding: "8px 12px", background: "#f0f9ff", borderRadius: 8, fontSize: 12, color: "#0369a1" }}>
+            Upon registration, an OTP will be dispatched for email identity verification.
+          </div>
           <Form
             form={userForm}
             layout="vertical"
             onFinish={handleCreateUser}
-            initialValues={{ role: "issuer", status: "active" }}
-            style={{ marginTop: 16 }}
+            initialValues={{ role: "issuer", status: "active", password: "Password123!@#" }}
+            style={{ marginTop: 8 }}
           >
             <Form.Item
               name="username"
-              label="Username / Email"
+              label="Username"
               rules={[{ required: true, message: "Enter username" }]}
             >
-              <Input placeholder="user@example.com" />
+              <Input placeholder="e.g. rahul11_issuer" />
+            </Form.Item>
+            <Form.Item
+              name="email"
+              label="Official Email"
+              rules={[{ required: true, type: "email", message: "Enter valid email" }]}
+            >
+              <Input placeholder="e.g. rahul@gmail.com" />
+            </Form.Item>
+            <Form.Item
+              name="password"
+              label="Initial Password"
+              rules={[{ required: true, message: "Enter password" }]}
+            >
+              <Input.Password placeholder="Password123!@#" />
             </Form.Item>
             <Form.Item name="contact_name" label="Full Name">
-              <Input placeholder="e.g. Dr. Arthur Pendelton" />
+              <Input placeholder="e.g. Rahul Batham" />
             </Form.Item>
             <Form.Item name="organization" label="Organization">
-              <Input placeholder="e.g. University Credentials Authority" />
+              <Input placeholder="e.g. Delhi Technological University" />
             </Form.Item>
             <Form.Item name="role" label="System Role" rules={[{ required: true }]}>
               <Select
@@ -1750,7 +2127,7 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24 }}>
               <Button onClick={() => setIsUserModalOpen(false)}>Cancel</Button>
               <Button type="primary" htmlType="submit" style={{ background: "#1B365D", borderColor: "#1B365D" }}>
-                Register Account
+                Register Account & Send OTP
               </Button>
             </div>
           </Form>
@@ -1773,7 +2150,7 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
               Close
             </Button>,
           ]}
-          destroyOnClose
+          destroyOnHidden
         >
           {selectedAuditLog && (
             <Descriptions bordered column={1} size="small" style={{ borderRadius: 8, marginTop: 12 }}>
@@ -1793,14 +2170,35 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
                 {selectedAuditLog.target || "System Network"}
               </Descriptions.Item>
               <Descriptions.Item label="Event Description">
-                {selectedAuditLog.details}
+                {typeof selectedAuditLog.details === "object" && selectedAuditLog.details !== null
+                  ? JSON.stringify(selectedAuditLog.details, null, 2)
+                  : String(selectedAuditLog.details || "Administrative event logged.")}
               </Descriptions.Item>
               <Descriptions.Item label="Recorded Timestamp">
-                {new Date(selectedAuditLog.timestamp).toLocaleString()}
+                {(() => {
+                  try {
+                    return selectedAuditLog.timestamp ? new Date(selectedAuditLog.timestamp).toLocaleString() : "—";
+                  } catch {
+                    return String(selectedAuditLog.timestamp || "—");
+                  }
+                })()}
               </Descriptions.Item>
             </Descriptions>
           )}
         </Modal>
+
+        {/* Email OTP Verification Modal */}
+        <EmailOtpModal
+          open={adminOtpModalData.open}
+          email={adminOtpModalData.email}
+          userId={adminOtpModalData.userId}
+          title="Verify Email OTP"
+          onClose={() => setAdminOtpModalData((prev) => ({ ...prev, open: false }))}
+          onVerified={async () => {
+            message.success("User email verified successfully! Reloading directory...");
+            await loadData();
+          }}
+        />
       </div>
     </DashboardLayout>
   );

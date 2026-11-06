@@ -12,8 +12,10 @@ import {
   DownOutlined,
   SearchOutlined,
   BellOutlined,
+  LockOutlined,
 } from "@ant-design/icons";
 import { useTheme } from "../../context/ThemeContext";
+import ChangePasswordModal from "../../components/modals/ChangePasswordModal/ChangePasswordModal";
 import "./Topbar.css";
 
 const Topbar = ({ title, role, actions, breadcrumb }) => {
@@ -26,6 +28,7 @@ const Topbar = ({ title, role, actions, breadcrumb }) => {
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifPos, setNotifPos] = useState({ top: 0, right: 0 });
   const [searchQuery, setSearchQuery] = useState("");
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   const profileBtnRef = useRef(null);
   const notifBtnRef = useRef(null);
@@ -120,7 +123,7 @@ const Topbar = ({ title, role, actions, breadcrumb }) => {
   const displayUsername = user?.username ? user.username.split("@")[0] : "Admin";
 
   const notifications = [
-    { id: 1, title: "Ledger Synced", desc: "Block #148,290 verified on CDAC testnet", time: "1 min ago" },
+    { id: 1, title: "Ledger Synced", desc: "Block #148,290 verified on CDAC-SSI Ledger (9000)", time: "1 min ago" },
     { id: 2, title: "Peer Handshake", desc: "Holder did:example:holder1 connection active", time: "12 mins ago" },
     { id: 3, title: "Audit Check", desc: "Ed25519 cryptographic key verified", time: "1 hr ago" },
   ];
@@ -155,10 +158,17 @@ const Topbar = ({ title, role, actions, breadcrumb }) => {
         {actions}
 
         {/* Live Network Node Status Badge */}
-        <div className="topbar-node-badge" title="CDAC Ledger Connection: Synchronized">
+        <a
+          href="http://10.210.13.22:9000/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="topbar-node-badge"
+          title="CDAC-SSI Ledger (http://10.210.13.22:9000/) - Synced"
+          style={{ textDecoration: "none" }}
+        >
           <span className="node-pulse-dot" />
-          <span className="node-label">Indy Ledger: Synced</span>
-        </div>
+          <span className="node-label">CDAC-SSI Ledger: Synced</span>
+        </a>
 
         {/* Dynamic Role Badge */}
         <span className="tag tag-primary topbar-role-tag">
@@ -271,12 +281,27 @@ const Topbar = ({ title, role, actions, breadcrumb }) => {
               </div>
             </div>
             <div className="dropdown-divider" />
+            <button
+              className="topbar-dropdown-item"
+              onClick={() => {
+                setProfileOpen(false);
+                setChangePasswordOpen(true);
+              }}
+            >
+              <LockOutlined /> Change Password
+            </button>
             <button className="topbar-dropdown-item logout" onClick={handleLogout}>
               <LogoutOutlined /> Sign Out
             </button>
           </div>,
           document.body
         )}
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        open={changePasswordOpen}
+        onClose={() => setChangePasswordOpen(false)}
+      />
     </div>
   );
 };

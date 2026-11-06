@@ -10,10 +10,15 @@ const RoleGuard = ({ allowedRoles, children }) => {
 
   const primaryRole = allowedRoles[0] || "issuer";
 
-  // If user is not logged in, or logged into a different role,
-  // redirect directly to the login page for this specific role!
-  if (!user || !allowedRoles.includes(user.role)) {
+  // 1. If user is not logged in, redirect to the role's login page
+  if (!user) {
     return <Navigate to={`/login/${primaryRole}`} replace />;
+  }
+
+  // 2. Single-Portal Exclusivity: If user is logged into another role,
+  // redirect them to their own authorized active portal!
+  if (!allowedRoles.includes(user.role)) {
+    return <Navigate to={`/${user.role}-dashboard`} replace />;
   }
 
   return children;

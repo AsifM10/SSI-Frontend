@@ -1865,7 +1865,7 @@ const DepartmentAdminList = () => {
         footer={null}
         width={560}
         centered
-        destroyOnClose
+        destroyOnHidden
         className="admin-view-modal"
       >
         <div className="detail-card admin-view-card">

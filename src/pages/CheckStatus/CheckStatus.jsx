@@ -13,6 +13,7 @@ import {
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { adminService } from "../../services/apiClient";
+import { authApi } from "../../services/api";
 import "./CheckStatus.css";
 
 const { Title, Text, Paragraph } = Typography;
@@ -27,19 +28,43 @@ export default function CheckStatus() {
   const handleCheck = async (idToCheck) => {
     const targetId = (idToCheck || reservationId).trim();
     if (!targetId) {
-      message.warning("Please enter a reservation ID");
+      message.warning("Please enter a reservation or User ID");
       return;
     }
 
     setLoading(true);
     setSearched(true);
     try {
+      // 1. First check public status endpoint GET /api/v1/registration/status/{userId}
+      try {
+        const directRes = await authApi.getRegistrationStatus(targetId);
+        if (directRes?.success && directRes.data) {
+          const d = directRes.data;
+          setResult({
+            reservation_id: d.userId || targetId,
+            tenant_name: d.organizationName || d.username || "Applicant",
+            contact_email: d.email,
+            requested_role: d.role,
+            state: d.registrationStatus === "APPROVED" ? "approved" : d.registrationStatus === "REJECTED" ? "denied" : "pending",
+            provisioning_status: d.registrationStatus === "APPROVED" ? "completed" : "pending",
+            did: d.did,
+            wallet_id: d.walletId,
+            state_notes: d.message || "Registration in progress",
+          });
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // Fallback to admin reservations list query
+      }
+
       const res = await adminService.getReservations();
       if (res?.success) {
         const found = (res.data || []).find(
           (r) =>
             r.reservation_id?.toLowerCase() === targetId.toLowerCase() ||
-            r.contact_email?.toLowerCase() === targetId.toLowerCase()
+            r.contact_email?.toLowerCase() === targetId.toLowerCase() ||
+            r.username?.toLowerCase() === targetId.toLowerCase()
         );
         setResult(found || null);
       }

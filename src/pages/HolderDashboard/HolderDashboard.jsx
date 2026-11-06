@@ -53,6 +53,15 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
   const [schemas, setSchemas] = useState([]);
   const [filterQuery, setFilterQuery] = useState("");
 
+  const [holderDid, setHolderDid] = useState(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem("user") || "{}");
+      return u?.did || "did:sov:citizen";
+    } catch {
+      return "did:sov:citizen";
+    }
+  });
+
   // Modals & Detail Views
   const [selectedProofForReview, setSelectedProofForReview] = useState(null);
   const [selectedOfferForReview, setSelectedOfferForReview] = useState(null);
@@ -70,12 +79,13 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [credRes, connRes, offerRes, proofRes, schemaRes] = await Promise.all([
+      const [credRes, connRes, offerRes, proofRes, schemaRes, didRes] = await Promise.all([
         holderService.getCredentials(),
         holderService.getConnections(),
         holderService.getOffers(),
         holderService.getProofRequests(),
         issuerService.getSchemas ? issuerService.getSchemas() : Promise.resolve({ data: [] }),
+        holderService.getDID ? holderService.getDID() : Promise.resolve({ did: null }),
       ]);
 
       if (credRes?.success) setCredentials(credRes.data || []);
@@ -84,6 +94,9 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
       if (proofRes?.success) setProofRequests(proofRes.data || []);
       if (schemaRes?.success) {
         setSchemas(schemaRes.data || []);
+      }
+      if (didRes?.did) {
+        setHolderDid(didRes.did);
       }
     } catch {
       message.error("Failed to load holder wallet data");
@@ -233,7 +246,6 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
       (c.issuerName || c.issuer || "").toLowerCase().includes(filterQuery.toLowerCase())
   );
 
-  const holderDid = "did:example:holder1";
   const handleCopyDID = () => {
     navigator.clipboard?.writeText(holderDid);
     message.success("Holder DID copied to clipboard!");
@@ -965,7 +977,7 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
           onCancel={() => setSelectedOfferForReview(null)}
           footer={null}
           width={680}
-          destroyOnClose
+          destroyOnHidden
         >
           {selectedOfferForReview && (
             <div className="offer-review-modal-body">
@@ -1057,7 +1069,7 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
           onCancel={() => setSelectedProofForReview(null)}
           footer={null}
           width={720}
-          destroyOnClose
+          destroyOnHidden
         >
           {selectedProofForReview && (
             <div className="proof-review-modal-body">
@@ -1236,7 +1248,7 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
           open={isShareProofModalOpen}
           onCancel={() => setIsShareProofModalOpen(false)}
           footer={null}
-          destroyOnClose
+          destroyOnHidden
         >
           <Form form={shareProofForm} layout="vertical" onFinish={handleShareProofSubmit} style={{ marginTop: 16 }}>
             <Form.Item name="connectionId" label="Recipient Peer (Verifier)" rules={[{ required: true, message: "Select peer" }]}>

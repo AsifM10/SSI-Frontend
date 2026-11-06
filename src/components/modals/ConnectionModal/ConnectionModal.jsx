@@ -354,7 +354,7 @@ export default function ConnectionModal({
         </Button>,
       ]}
       width={780}
-      destroyOnClose
+      destroyOnHidden
     >
       <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
     </Modal>

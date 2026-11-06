@@ -9,7 +9,7 @@ import {
   EyeInvisibleOutlined,
 } from "@ant-design/icons";
 import "./ForgotPasswordModal.css";
-import api, { sendOtp } from "../../../services/api";
+import { authService } from "../../../services/apiClient";
 import { useNavigate } from "react-router-dom";
 
 const STEP_EMAIL = 1;
@@ -26,6 +26,7 @@ const ForgotPasswordModal = ({ open, onClose }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
 
@@ -39,6 +40,7 @@ const ForgotPasswordModal = ({ open, onClose }) => {
     setConfirmPassword("");
     setError("");
     setSuccess(false);
+    setLoading(false);
   };
 
   const handleClose = () => {
@@ -47,26 +49,29 @@ const ForgotPasswordModal = ({ open, onClose }) => {
   };
 
   const handleSendOtp = async () => {
-
     if (!email.trim()) {
       setError("Please enter your email");
       return;
     }
+    setError("");
+    setLoading(true);
     try {
-      const result = await sendOtp({ email, purpose: "FORGOT_PASSWORD" });
-      if (result.success) {
+      const result = await authService.forgotPassword({ email: email.trim() });
+      if (result.success || result.status === 200 || result.data) {
         setStep(STEP_OTP);
       } else {
-        setError(result.message || "Failed to send OTP");
+        setError(result.message || "Failed to send reset code");
       }
     } catch (error) {
-      setError(error.message || "Unable to send OTP. Please try again.");
+      setError(error?.response?.data?.message || error.message || "Unable to send reset code. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const verifyOtp = async () => {
     if (!otp.trim()) {
-      setError("Please enter the OTP");
+      setError("Please enter the reset code");
       return;
     }
     setError("");
@@ -74,25 +79,33 @@ const ForgotPasswordModal = ({ open, onClose }) => {
   };
 
   const handleResetPassword = async () => {
-    if (password !== confirmPassword) {
-      setError("Confirm password is different!");
+    if (!password) {
+      setError("Please enter a new password");
       return;
     }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match!");
+      return;
+    }
+    setError("");
+    setLoading(true);
     try {
-      const obj = {
-        email: email,
-        newPassword: confirmPassword,
-        otpCode: otp,
+      const payload = {
+        email: email.trim(),
+        code: otp.trim(),
+        newPassword: password,
       };
-      const response = await api.post("/auth/forgot-password", obj);
-      if (response.data.success) {
+      const response = await authService.resetPassword(payload);
+      if (response.success || response.status === 200 || response.data) {
         setError("");
         setSuccess(true);
       } else {
-        setError(response.data.message || "Failed to Reset password!");
+        setError(response.message || "Failed to reset password!");
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to Reset password!");
+      setError(err.response?.data?.message || err.message || "Failed to reset password!");
+    } finally {
+      setLoading(false);
     }
   };
 

@@ -170,8 +170,7 @@ export const mockRegister = async (registerData) => {
     }
   }
 
-  // 6. Check unique constraints against existing mock & registered users
-  let registeredUsers = [];
+  let registeredUsers;
   try {
     registeredUsers = JSON.parse(localStorage.getItem("mock_registered_users") || "[]");
   } catch {
