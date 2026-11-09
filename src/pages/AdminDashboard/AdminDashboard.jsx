@@ -43,11 +43,12 @@ import {
   GlobalOutlined,
   QuestionCircleOutlined,
   FileTextOutlined,
+  MailOutlined,
 } from "@ant-design/icons";
 import DashboardLayout from "../../layouts/DashboardLayout/DashboardLayout";
 import StatCard from "../../components/cards/StatCard/StatCard";
 import EmailOtpModal from "../../components/modals/EmailOtpModal/EmailOtpModal";
-import { adminService } from "../../services/apiClient";
+import { adminService, authService } from "../../services/apiClient";
 import "./AdminDashboard.css";
 
 const { TextArea } = Input;
@@ -2090,7 +2091,45 @@ const AdminDashboard = ({ activeTab = "dashboard" }) => {
             <Form.Item
               name="username"
               label="Username"
-              rules={[{ required: true, message: "Enter username" }]}
+              hasFeedback
+              validateTrigger="onChange"
+              validateDebounce={450}
+              rules={[
+                { required: true, message: "Enter username" },
+                {
+                  pattern: /^[a-zA-Z0-9_-]{3,50}$/,
+                  message: "Use 3-50 letters, numbers, underscores, or hyphens",
+                },
+                {
+                  validator: async (_, value) => {
+                    const username = (value || "").trim();
+                    if (!username || !/^[a-zA-Z0-9_-]{3,50}$/.test(username)) {
+                      return;
+                    }
+
+                    let res;
+                    try {
+                      res = await authService.checkUsername(username);
+                    } catch {
+                      // Network failure: don't block submission; backend still enforces uniqueness.
+                      return;
+                    }
+
+                    const available =
+                      typeof res?.available === "boolean"
+                        ? res.available
+                        : typeof res?.data?.available === "boolean"
+                        ? res.data.available
+                        : null;
+
+                    if (available === false) {
+                      throw new Error(
+                        res?.message || res?.data?.message || "Username is already taken"
+                      );
+                    }
+                  },
+                },
+              ]}
             >
               <Input placeholder="e.g. rahul11_issuer" />
             </Form.Item>

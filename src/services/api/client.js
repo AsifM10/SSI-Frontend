@@ -52,6 +52,10 @@ export const apiClient = axios.create({
 // Request Interceptor: Attach Bearer token and X-API-KEY if present
 apiClient.interceptors.request.use(
   (config) => {
+    if (!config.url || config.url === '/' || config.url === '') {
+      console.warn("Prevented blank API call to root baseURL:", config);
+      return Promise.reject(new Error("Empty API endpoint path is not allowed."));
+    }
     let token = manualToken || localStorage.getItem('token') || localStorage.getItem('accessToken');
     if (token && typeof token === 'string' && (token.startsWith('token-') || token.startsWith('mock-'))) {
       token = null;

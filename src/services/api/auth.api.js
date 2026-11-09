@@ -18,6 +18,16 @@ export const authApi = {
   },
 
   /**
+   * Check whether a username is still available during registration
+   */
+  async checkUsername(username) {
+    const res = await apiClient.get(ENDPOINTS.AUTH.CHECK_USERNAME, {
+      params: { username },
+    });
+    return res.data;
+  },
+
+  /**
    * Resend Email OTP
    */
   async resendOtp(params) {

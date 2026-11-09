@@ -470,6 +470,89 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
 }
 
+.username-status-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 16px;
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.username-status-row .username-status-icon {
+  font-size: 13px;
+}
+
+.username-status-row.checking {
+  color: #64748B;
+}
+
+.username-status-row.available {
+  color: #10B981;
+}
+
+.username-status-row.taken,
+.username-status-row.error,
+.username-status-row.invalid {
+  color: #DC2626;
+}
+
+[data-theme="dark"] .username-status-row.checking {
+  color: #94A3B8;
+}
+
+[data-theme="dark"] .username-status-row.available {
+  color: #34D399;
+}
+
+[data-theme="dark"] .username-status-row.taken,
+[data-theme="dark"] .username-status-row.error,
+[data-theme="dark"] .username-status-row.invalid {
+  color: #F87171;
+}
+
+.username-suggestions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.username-suggestions-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748B;
+}
+
+.username-suggestion-chip {
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #2563EB;
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.username-suggestion-chip:hover {
+  background: rgba(37, 99, 235, 0.16);
+  border-color: #2563EB;
+}
+
+[data-theme="dark"] .username-suggestions-label {
+  color: #94A3B8;
+}
+
+[data-theme="dark"] .username-suggestion-chip {
+  color: #93C5FD;
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
 .pwd-toggle-btn {
   position: absolute;
   right: 12px;

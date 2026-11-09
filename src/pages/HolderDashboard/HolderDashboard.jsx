@@ -28,7 +28,6 @@ import {
   DeleteOutlined,
   LinkOutlined,
   ShareAltOutlined,
-  ArrowRightOutlined,
   LockOutlined,
   InfoCircleOutlined,
   CopyOutlined,
@@ -38,7 +37,7 @@ import DashboardLayout from "../../layouts/DashboardLayout/DashboardLayout";
 import StatCard from "../../components/cards/StatCard/StatCard";
 import ConnectionModal from "../../components/modals/ConnectionModal/ConnectionModal";
 import CredentialDetailsModal from "../../components/modals/CredentialDetailsModal/CredentialDetailsModal";
-import { holderService, issuerService } from "../../services/apiClient";
+import { holderService } from "../../services/apiClient";
 import "./HolderDashboard.css";
 
 const { Option } = Select;
@@ -50,7 +49,6 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
   const [connections, setConnections] = useState([]);
   const [offers, setOffers] = useState([]);
   const [proofRequests, setProofRequests] = useState([]);
-  const [schemas, setSchemas] = useState([]);
   const [filterQuery, setFilterQuery] = useState("");
 
   const [holderDid, setHolderDid] = useState(() => {
@@ -79,22 +77,18 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [credRes, connRes, offerRes, proofRes, schemaRes, didRes] = await Promise.all([
+      const [credRes, connRes, offerRes, proofRes, didRes] = await Promise.all([
         holderService.getCredentials(),
         holderService.getConnections(),
         holderService.getOffers(),
         holderService.getProofRequests(),
-        issuerService.getSchemas ? issuerService.getSchemas() : Promise.resolve({ data: [] }),
         holderService.getDID ? holderService.getDID() : Promise.resolve({ did: null }),
       ]);
 
-      if (credRes?.success) setCredentials(credRes.data || []);
-      if (connRes?.success) setConnections(connRes.data || []);
-      if (offerRes?.success) setOffers(offerRes.data || []);
-      if (proofRes?.success) setProofRequests(proofRes.data || []);
-      if (schemaRes?.success) {
-        setSchemas(schemaRes.data || []);
-      }
+      if (credRes?.success) setCredentials(Array.isArray(credRes.data) ? credRes.data : []);
+      if (connRes?.success) setConnections(Array.isArray(connRes.data) ? connRes.data : []);
+      if (offerRes?.success) setOffers(Array.isArray(offerRes.data) ? offerRes.data : []);
+      if (proofRes?.success) setProofRequests(Array.isArray(proofRes.data) ? proofRes.data : []);
       if (didRes?.did) {
         setHolderDid(didRes.did);
       }
@@ -485,9 +479,6 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
     credentials.find((c) => c.id === selectedCredentialIdForProof) || credentials[0];
   const requestedAttrs = selectedProofForReview?.requestedAttributes || [];
   const requestedPredicates = selectedProofForReview?.requestedPredicates || [];
-  const matchingAttrs = requestedAttrs.filter(
-    (a) => currentProofCredential?.attrs && currentProofCredential.attrs[a] !== undefined
-  );
   const missingAttrs = requestedAttrs.filter(
     (a) => !currentProofCredential?.attrs || currentProofCredential.attrs[a] === undefined
   );

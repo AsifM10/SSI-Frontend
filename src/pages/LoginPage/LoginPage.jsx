@@ -21,8 +21,6 @@ import {
   PhoneOutlined,
   CalendarOutlined,
   AuditOutlined,
-  UserAddOutlined,
-  LoginOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
 import TrustDiagram from "../Home/TrustDiagram";
@@ -137,6 +135,24 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
   const [regSuccess, setRegSuccess] = useState("");
   const [resetSuccess, setResetSuccess] = useState("");
   const [isRegSubmitting, setIsRegSubmitting] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState({
+    checking: false,
+    available: null,
+    message: "",
+    suggestions: [],
+    error: false,
+    checkedUsername: "",
+  });
+
+  // Real-time username availability check
+  const trimmedUsername = regForm.username.trim();
+  const isUsernameFormatValid = /^[a-zA-Z0-9_-]{3,50}$/.test(trimmedUsername);
+  const isUsernamePending =
+    isUsernameFormatValid && usernameStatus.checkedUsername !== trimmedUsername;
+  const isUsernameReady =
+    isUsernameFormatValid &&
+    !isUsernamePending &&
+    (usernameStatus.available === true || usernameStatus.error);
 
   // Real-time password check flags
   const pwd = regForm.password || "";
@@ -181,6 +197,79 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRole]);
 
+  // Debounced username availability check
+  useEffect(() => {
+    let cancelled = false;
+
+    const timer = setTimeout(async () => {
+      if (!isUsernameFormatValid) {
+        setUsernameStatus({
+          checking: false,
+          available: null,
+          message: "",
+          suggestions: [],
+          error: false,
+          checkedUsername: trimmedUsername,
+        });
+        return;
+      }
+
+      setUsernameStatus({
+        checking: true,
+        available: null,
+        message: "",
+        suggestions: [],
+        error: false,
+        checkedUsername: trimmedUsername,
+      });
+
+      try {
+        const res = await authService.checkUsername(trimmedUsername);
+        if (cancelled) return;
+
+        const available =
+          typeof res?.available === "boolean"
+            ? res.available
+            : typeof res?.data?.available === "boolean"
+            ? res.data.available
+            : null;
+        const suggestions = Array.isArray(res?.suggestions)
+          ? res.suggestions
+          : Array.isArray(res?.data?.suggestions)
+          ? res.data.suggestions
+          : [];
+
+        setUsernameStatus({
+          checking: false,
+          available,
+          message: res?.message || res?.data?.message || "",
+          suggestions,
+          error: false,
+          checkedUsername: trimmedUsername,
+        });
+      } catch (err) {
+        if (cancelled) return;
+
+        setUsernameStatus({
+          checking: false,
+          available: null,
+          message:
+            err?.response?.data?.message ||
+            err?.message ||
+            "Could not verify username availability.",
+          suggestions: [],
+          error: true,
+          checkedUsername: trimmedUsername,
+        });
+      }
+    }, 450);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [trimmedUsername, isUsernameFormatValid]);
+
   // Resend OTP countdown timer
   useEffect(() => {
     let timer;
@@ -220,17 +309,11 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
 
   const handleRoleChange = (targetRole) => {
     if (targetRole !== activeRole) {
-      if (mode === "register" || mode === "verify-otp") {
-        if (targetRole === "admin") {
-          setMode("login");
-          navigate(`/login/admin`);
-        } else {
-          setMode("register");
-          navigate(`/register/${targetRole}`);
-        }
-      } else {
-        navigate(`/login/${targetRole}`);
-      }
+      setMode("login");
+      setLoginError("");
+      setRegError("");
+      setRegSuccess("");
+      navigate(`/login/${targetRole}`);
     }
   };
 
@@ -617,10 +700,19 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
     setRegError("");
     setRegSuccess("");
 
-    // Validate username regex
-    const usernameRegex = /^[a-zA-Z0-9_-]+$/;
-    if (!usernameRegex.test(regForm.username.trim())) {
+    // Validate username format and availability
+    if (!isUsernameFormatValid) {
       setRegError("Username can only contain alphanumeric characters, underscores, and hyphens (3-50 chars).");
+      return;
+    }
+
+    if (!isUsernamePending && usernameStatus.available === false) {
+      setRegError("That username is already taken. Please choose a different one.");
+      return;
+    }
+
+    if (isUsernamePending || usernameStatus.checking || (usernameStatus.available !== true && !usernameStatus.error)) {
+      setRegError("Please wait while we verify your username availability.");
       return;
     }
 
@@ -1104,6 +1196,69 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
                             autoComplete="username"
                           />
                         </div>
+
+                        {trimmedUsername.length > 0 && (
+                          <div
+                            className={`username-status-row ${
+                              isUsernamePending || usernameStatus.checking
+                                ? "checking"
+                                : !isUsernameFormatValid
+                                ? "invalid"
+                                : usernameStatus.available === true
+                                ? "available"
+                                : usernameStatus.available === false
+                                ? "taken"
+                                : usernameStatus.error
+                                ? "error"
+                                : ""
+                            }`}
+                          >
+                            {isUsernamePending || usernameStatus.checking ? (
+                              <>
+                                <ReloadOutlined spin className="username-status-icon" />
+                                <span>Checking availability...</span>
+                              </>
+                            ) : !isUsernameFormatValid ? (
+                              <>
+                                <CloseCircleOutlined className="username-status-icon" />
+                                <span>Use 3-50 letters, numbers, underscores, or hyphens.</span>
+                              </>
+                            ) : usernameStatus.available === true ? (
+                              <>
+                                <CheckCircleOutlined className="username-status-icon" />
+                                <span>{usernameStatus.message || "Username is available"}</span>
+                              </>
+                            ) : usernameStatus.available === false ? (
+                              <>
+                                <CloseCircleOutlined className="username-status-icon" />
+                                <span>{usernameStatus.message || "Username is already taken"}</span>
+                              </>
+                            ) : usernameStatus.error ? (
+                              <>
+                                <CloseCircleOutlined className="username-status-icon" />
+                                <span>{usernameStatus.message}</span>
+                              </>
+                            ) : null}
+                          </div>
+                        )}
+
+                        {!isUsernamePending && usernameStatus.available === false && usernameStatus.suggestions.length > 0 && (
+                          <div className="username-suggestions">
+                            <span className="username-suggestions-label">Try:</span>
+                            {usernameStatus.suggestions.map((suggestion) => (
+                              <button
+                                key={suggestion}
+                                type="button"
+                                className="username-suggestion-chip"
+                                onClick={() =>
+                                  setRegForm((prev) => ({ ...prev, username: suggestion }))
+                                }
+                              >
+                                {suggestion}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       <div className="form-group-custom">
@@ -1455,7 +1610,7 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
                     {/* Submit Registration Button */}
                     <button
                       type="submit"
-                      disabled={isRegSubmitting || !isPwdValid}
+                      disabled={isRegSubmitting || !isPwdValid || !isUsernameReady}
                       className="folder-submit-btn"
                       style={{ background: "#2563EB" }}
                     >

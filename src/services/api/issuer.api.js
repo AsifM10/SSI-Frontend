@@ -138,8 +138,20 @@ export const issuerApi = {
   },
 
   async revokeCredential(payload) {
-    const res = await apiClient.post(ENDPOINTS.ISSUER.REVOCATION_REVOKE, payload);
-    return res.data;
+    try {
+      const res = await apiClient.post(ENDPOINTS.ISSUER.REVOCATION_REVOKE, payload);
+      return res.data;
+    } catch (err) {
+      if (err?.response?.status === 404 || err?.status === 404 || err?.response?.status === 422 || err?.statusCode === 422) {
+        try {
+          const fallbackRes = await apiClient.post('/issuer/anoncreds/revocation/revoke', payload);
+          return fallbackRes.data;
+        } catch {
+          throw err;
+        }
+      }
+      throw err;
+    }
   },
 
   // 5. Onboarding QR Campaigns

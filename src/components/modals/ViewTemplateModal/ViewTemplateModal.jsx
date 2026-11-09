@@ -29,7 +29,7 @@ import "./ViewTemplateModal.css";
 
 const { Text } = Typography;
 
-export default function ViewTemplateModal({ visible, onClose, schema }) {
+export default function ViewTemplateModal({ visible, onClose, schema, credDef, credDefs = [] }) {
   const [showJson, setShowJson] = useState(false);
   const [attributeFilter, setAttributeFilter] = useState("");
   const [loadingDetails, setLoadingDetails] = useState(false);
@@ -60,6 +60,34 @@ export default function ViewTemplateModal({ visible, onClose, schema }) {
 
   const [resolvedAttributes, setResolvedAttributes] = useState(initialAttributes);
   const seqNo = ledgerSchemaData?.seqNo || schema?.seqNo || schema?.raw?.seqNo || (parts[3] ? "1001" : null);
+
+  // Derive Credential Definition ID matching this schema
+  const matchedCredDef =
+    credDef ||
+    credDefs?.find(
+      (cd) =>
+        cd.schemaId === schemaId ||
+        cd.schema_id === schemaId ||
+        (seqNo && String(cd.seqNo) === String(seqNo)) ||
+        (cd.id && seqNo && cd.id.includes(`:${seqNo}:`)) ||
+        (schemaName && cd.schemaName && cd.schemaName.toLowerCase() === schemaName.toLowerCase())
+    );
+
+  const effectiveCredDefId =
+    matchedCredDef?.id ||
+    matchedCredDef?.cred_def_id ||
+    matchedCredDef?.credentialDefinitionId ||
+    schema?.credDefId ||
+    schema?.cred_def_id ||
+    schema?.credentialDefinitionId ||
+    schema?.credential_definition_id ||
+    (seqNo && formattedIssuerDid
+      ? `${formattedIssuerDid.replace(/^did:sov:/, "")}:3:CL:${seqNo}:${matchedCredDef?.tag || "default"}`
+      : null);
+
+  const credDefTag =
+    matchedCredDef?.tag ||
+    (effectiveCredDefId && effectiveCredDefId.includes(":3:CL:") ? effectiveCredDefId.split(":")[4] : "default");
 
   // Fetch full ledger schema definition if attributes are missing
   useEffect(() => {
@@ -120,8 +148,10 @@ export default function ViewTemplateModal({ visible, onClose, schema }) {
   const rawJsonContent = JSON.stringify(
     {
       schema_id: schemaId,
+      credential_definition_id: effectiveCredDefId || null,
       name: schemaName,
       version: schemaVersion,
+      tag: credDefTag || "default",
       issuer_did: formattedIssuerDid,
       attributes: resolvedAttributes,
       seqNo: seqNo || 1001,
@@ -142,7 +172,7 @@ export default function ViewTemplateModal({ visible, onClose, schema }) {
           <div>
             <span className="schema-header-title">Credential Schema & Template Details</span>
             <div style={{ fontSize: 12, fontWeight: 400, color: "#64748b" }}>
-              Indy / AnonCreds 1.0 Cryptographic Ledger Schema
+              Indy / AnonCreds 1.0 Cryptographic Ledger Schema & Credential Definition
             </div>
           </div>
         </div>
@@ -194,16 +224,51 @@ export default function ViewTemplateModal({ visible, onClose, schema }) {
               <div className="schema-info-item" style={{ gridColumn: "1 / -1" }}>
                 <span className="schema-info-label">Canonical Schema ID</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
-                  <Text code copyable style={{ fontSize: 12, wordBreak: "break-all", background: "#f1f5f9" }}>
+                  <Text code copyable style={{ fontSize: 12, wordBreak: "break-all", background: "#f1f5f9", display: "block", width: "100%", padding: "4px 8px", borderRadius: 6 }}>
                     {schemaId || "N/A"}
                   </Text>
                 </div>
               </div>
 
               <div className="schema-info-item" style={{ gridColumn: "1 / -1" }}>
+                <span className="schema-info-label">Credential Definition ID</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2, flexWrap: "wrap" }}>
+                  <Text
+                    code
+                    copyable={Boolean(effectiveCredDefId)}
+                    style={{
+                      fontSize: 12,
+                      wordBreak: "break-all",
+                      background: effectiveCredDefId ? "#f0fdf4" : "#fef2f2",
+                      color: effectiveCredDefId ? "#166534" : "#991b1b",
+                      border: effectiveCredDefId ? "1px solid #bbf7d0" : "1px dashed #fecaca",
+                      display: "block",
+                      width: "100%",
+                      padding: "4px 8px",
+                      borderRadius: 6,
+                    }}
+                  >
+                    {effectiveCredDefId || "Not Registered Yet on Ledger"}
+                  </Text>
+                  {effectiveCredDefId && (
+                    <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                      <Tag color="green" style={{ fontSize: 11, borderRadius: 10, fontWeight: 600 }}>
+                        CL Public Keys Anchored
+                      </Tag>
+                      {credDefTag && (
+                        <Tag color="purple" style={{ fontSize: 11, borderRadius: 10, fontWeight: 600 }}>
+                          Tag: {credDefTag}
+                        </Tag>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="schema-info-item" style={{ gridColumn: "1 / -1" }}>
                 <span className="schema-info-label">Issuer Sovereign DID</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
-                  <Text code copyable style={{ fontSize: 12, color: "#0369a1", background: "#f0f9ff" }}>
+                  <Text code copyable style={{ fontSize: 12, color: "#0369a1", background: "#f0f9ff", padding: "4px 8px", borderRadius: 6 }}>
                     {formattedIssuerDid}
                   </Text>
                   <Tag color="cyan" style={{ fontSize: 11, borderRadius: 10 }}>

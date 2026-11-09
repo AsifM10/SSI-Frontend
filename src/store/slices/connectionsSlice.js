@@ -7,7 +7,8 @@ export const fetchConnectionsList = createAsyncThunk(
   async (params, { rejectWithValue }) => {
     try {
       const res = await connectionsApi.listConnections(params);
-      return res.data || [];
+      const list = res?.data?.results || res?.data?.connections || res?.data || res?.results || res;
+      return Array.isArray(list) ? list : [];
     } catch (err) {
       return rejectWithValue(err.message || "Failed to fetch connections");
     }

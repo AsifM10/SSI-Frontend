@@ -7,6 +7,7 @@ export const ENDPOINTS = {
   // Authentication & Onboarding
   AUTH: {
     REGISTER: '/registration',
+    CHECK_USERNAME: '/auth/check-username',
     RESEND_OTP: '/registration/resend-otp',
     VERIFY_EMAIL: '/registration/verify/email',
     VERIFY_EKYC: '/registration/verify/ekyc',

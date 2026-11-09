@@ -23,6 +23,18 @@ import {
 export const getIsMockMode = () => false;
 export const MOCK_MODE = false;
 
+const extractList = (payload) => {
+  const candidates = [
+    payload?.data?.results,
+    payload?.data?.connections,
+    payload?.data,
+    payload?.results,
+    payload?.connections,
+    payload,
+  ];
+  return candidates.find(Array.isArray) || [];
+};
+
 /**
  * Authentication Service
  */
@@ -39,6 +51,10 @@ export const authService = {
   register: async (registerData) => {
     const res = await authApi.register(registerData);
     return res;
+  },
+
+  checkUsername: async (username) => {
+    return await authApi.checkUsername(username);
   },
 
   resendOtp: async (params) => {
@@ -261,60 +277,58 @@ export const issuerService = {
       const rawList = Array.isArray(rawData)
         ? rawData
         : Array.isArray(rawData?.schema_ids)
-          ? rawData.schema_ids.map((id) => {
-              const parts = String(id).split(":");
-              return {
-                id,
-                schema_id: id,
-                schemaId: id,
-                name: parts[2] || id,
-                version: parts[3] || "1.0",
-                attributes: [],
-                status: "active",
-              };
-            })
+          ? rawData.schema_ids
           : [];
 
-      const normalized = rawList.map((s, idx) => {
-        if (typeof s === "string") {
-          const parts = s.split(":");
+      // Fetch schema details for full attribute list and seqNo
+      const normalized = await Promise.all(
+        rawList.map(async (s, idx) => {
+          const schemaId = typeof s === "string" ? s : s.schema_id || s.schemaId || s.id || `schema-${idx + 1}`;
+          const parts = schemaId.includes(":") ? schemaId.split(":") : [];
           const parsedIssuerDid = parts.length >= 4 ? parts[0] : null;
+          let name = (typeof s === "object" ? (s.schemaName || s.schema_name || s.name) : null) || (parts[2] || schemaId);
+          let version = (typeof s === "object" ? (s.schemaVersion || s.schema_version || s.version) : null) || (parts[3] || "1.0");
+          let attributes = Array.isArray(s?.attributes) && s.attributes.length > 0
+            ? s.attributes
+            : Array.isArray(s?.attrNames) && s.attrNames.length > 0
+              ? s.attrNames
+              : Array.isArray(s?.attr_names) && s.attr_names.length > 0
+                ? s.attr_names
+                : [];
+          let seqNo = s?.seqNo || s?.schema_metadata?.seqNo || null;
+
+          // If seqNo or attributes are missing, query schema details from the ledger
+          if ((!seqNo || attributes.length === 0) && schemaId && schemaId.includes(":")) {
+            try {
+              const detailRes = await issuerApi.getSchema(schemaId);
+              const schemaData = detailRes?.data?.schema || detailRes?.data || detailRes?.schema || {};
+              const fetchedAttrs = schemaData.attrNames || schemaData.attributes || schemaData.attr_names || [];
+              if (Array.isArray(fetchedAttrs) && fetchedAttrs.length > 0) {
+                attributes = fetchedAttrs;
+              }
+              if (schemaData.name) name = schemaData.name;
+              if (schemaData.version) version = schemaData.version;
+              seqNo = detailRes?.data?.schema_metadata?.seqNo || schemaData.seqNo || seqNo;
+            } catch {
+              // fallback gracefully
+            }
+          }
+
           return {
-            id: s,
-            schema_id: s,
-            schemaId: s,
-            issuerDid: parsedIssuerDid,
-            name: parts[2] || s,
-            version: parts[3] || "1.0",
-            attributes: [],
-            status: "active",
+            id: schemaId,
+            schema_id: schemaId,
+            schemaId,
+            seqNo,
+            issuerDid: s?.issuerDid || s?.issuer_did || parsedIssuerDid,
+            name,
+            version,
+            attributes,
+            attrNames: attributes,
+            status: s?.status || "active",
+            raw: s,
           };
-        }
-        const schemaId = s.schema_id || s.schemaId || s.id || `schema-${idx + 1}`;
-        const parts = schemaId.includes(":") ? schemaId.split(":") : [];
-        const parsedIssuerDid = parts.length >= 4 ? parts[0] : null;
-        const name = s.schemaName || s.schema_name || s.name || (parts[2] || schemaId);
-        const version = s.schemaVersion || s.schema_version || s.version || (parts[3] || "1.0");
-        const attributes = Array.isArray(s.attributes) && s.attributes.length > 0
-          ? s.attributes
-          : Array.isArray(s.attrNames) && s.attrNames.length > 0
-            ? s.attrNames
-            : Array.isArray(s.attr_names) && s.attr_names.length > 0
-              ? s.attr_names
-              : [];
-        return {
-          id: schemaId,
-          schema_id: schemaId,
-          schemaId,
-          issuerDid: s.issuerDid || s.issuer_did || parsedIssuerDid,
-          name,
-          version,
-          attributes,
-          attrNames: attributes,
-          status: s.status || "active",
-          raw: s,
-        };
-      });
+        })
+      );
 
       return { success: true, data: normalized };
     } catch (err) {
@@ -324,57 +338,116 @@ export const issuerService = {
   },
 
   createSchema: async (schemaData) => {
+    const tag = schemaData.tag || "default";
     const payload = {
-      schemaName: schemaData.name || schemaData.schemaName || schemaData.schema_name,
       schema_name: schemaData.name || schemaData.schemaName || schemaData.schema_name,
-      schemaVersion: schemaData.version || schemaData.schemaVersion || schemaData.schema_version || "1.0",
       schema_version: schemaData.version || schemaData.schemaVersion || schemaData.schema_version || "1.0",
-      attributes: schemaData.attributes || [],
-      issuanceMode: schemaData.issuanceMode || "AUTO_ISSUE",
+      attributes: Array.isArray(schemaData.attributes) ? schemaData.attributes : [],
+      tag: tag,
+      support_revocation: schemaData.supportRevocation !== false && schemaData.support_revocation !== false,
     };
-    const res = await issuerApi.createSchema(payload);
-    return res;
+    // Combined Schema & Credential Definition creation: POST /api/v1/issuer/credential-definitions
+    const res = await apiClient.post(ENDPOINTS.ISSUER.CREDENTIAL_DEFINITIONS, payload);
+    return res.data;
   },
 
   getCredentialDefinitions: async () => {
     try {
-      // Real-time backend endpoint: GET /api/v1/issuer/credential-definitions
-      const res = await issuerApi.getCreatedCredDefs();
-      const rawData = res?.data?.credential_definitions || res?.data?.results || res?.data || res?.credential_definitions || res || [];
-      const rawList = Array.isArray(rawData)
-        ? rawData
-        : Array.isArray(rawData?.credential_definition_ids)
-          ? rawData.credential_definition_ids.map((id) => {
-              const parts = String(id).split(":");
-              return {
-                id,
-                cred_def_id: id,
-                credentialDefinitionId: id,
-                schemaId: parts[0] ? `${parts[0]}:2:${parts[3] || "schema"}:1.0` : "N/A",
-                tag: parts[4] || "default",
-                supportRevocation: false,
-              };
-            })
-          : [];
+      // 1. Try real-time backend endpoint: GET /api/v1/issuer/credential-definitions
+      let rawList = [];
+      try {
+        const res = await issuerApi.getCreatedCredDefs();
+        const candidate =
+          res?.data?.credential_definition_ids ||
+          res?.data?.credential_definitions ||
+          res?.data?.results ||
+          res?.data?.data?.credential_definition_ids ||
+          res?.data?.data?.credential_definitions ||
+          res?.data?.data ||
+          res?.data ||
+          res?.credential_definition_ids ||
+          res?.credential_definitions ||
+          res;
+
+        if (Array.isArray(candidate)) {
+          rawList = candidate;
+        } else if (Array.isArray(candidate?.credential_definition_ids)) {
+          rawList = candidate.credential_definition_ids;
+        } else if (Array.isArray(candidate?.credential_definitions)) {
+          rawList = candidate.credential_definitions;
+        } else if (Array.isArray(candidate?.results)) {
+          rawList = candidate.results;
+        }
+      } catch (err) {
+        console.warn("getCreatedCredDefs error:", err?.message || err);
+      }
+
+      // 2. If empty, fallback to recorded cred defs endpoint: GET /api/v1/issuer/credential-definitions/recorded
+      if (rawList.length === 0) {
+        try {
+          const recRes = await issuerApi.getRecordedCredDefs();
+          const recData = recRes?.data || recRes?.results || recRes;
+          if (Array.isArray(recData)) {
+            rawList = recData;
+          }
+        } catch {
+          // ignore fallback error
+        }
+      }
+
+      const storedUser = localStorage.getItem("user");
+      let storedIssuerDid = "KkFmaEgH6pkHJGnyMtpBm2";
+      if (storedUser) {
+        try {
+          const u = JSON.parse(storedUser);
+          if (u.rawDid || u.did) {
+            storedIssuerDid = String(u.rawDid || u.did).replace(/^did:sov:/, "");
+          }
+        } catch {
+          // ignore
+        }
+      }
 
       const normalized = rawList.map((d, idx) => {
-        if (typeof d === "string") {
-          return {
-            id: d,
-            cred_def_id: d,
-            credentialDefinitionId: d,
-            tag: "default",
-          };
+        let credDefId =
+          typeof d === "string"
+            ? d
+            : d.cred_def_id ||
+            d.credential_definition_id ||
+            d.credentialDefinitionId ||
+            d.id;
+
+        const parts = String(credDefId || "").split(":");
+        const seqNo =
+          typeof d === "object" && d.seqNo
+            ? d.seqNo
+            : parts.length >= 4 && !isNaN(Number(parts[3]))
+              ? parts[3]
+              : null;
+        const tag =
+          (typeof d === "object" ? d.tag : null) ||
+          (parts.length >= 5 ? parts[4] : "default");
+        const schemaId =
+          (typeof d === "object"
+            ? d.schema_id || d.schemaId || d.schema
+            : null) || (seqNo ? String(seqNo) : "");
+        const supportRevocation = Boolean(
+          d?.support_revocation ?? d?.supportRevocation ?? false
+        );
+
+        // Ensure credDefId is never a dummy string
+        if (!credDefId || !credDefId.includes(":3:CL:")) {
+          if (seqNo) {
+            credDefId = `${storedIssuerDid}:3:CL:${seqNo}:${tag}`;
+          }
         }
-        const credDefId = d.cred_def_id || d.credential_definition_id || d.credentialDefinitionId || d.id || `cred-def-${idx + 1}`;
-        const schemaId = d.schema_id || d.schemaId || d.schema || "";
-        const tag = d.tag || "default";
-        const supportRevocation = Boolean(d.support_revocation ?? d.supportRevocation ?? false);
+
         return {
           id: credDefId,
           cred_def_id: credDefId,
           credentialDefinitionId: credDefId,
           schemaId,
+          seqNo,
           tag,
           supportRevocation,
           raw: d,
@@ -386,46 +459,6 @@ export const issuerService = {
       console.warn("getCredentialDefinitions error:", err?.message || err);
       return { success: true, data: [] };
     }
-  },
-
-  createCredentialDefinition: async (credDefData) => {
-    const payload = {
-      schema_id: credDefData.schema_id || credDefData.schemaId || credDefData.id,
-      schemaId: credDefData.schema_id || credDefData.schemaId || credDefData.id,
-      tag: credDefData.tag || "default",
-      support_revocation: Boolean(credDefData.support_revocation ?? credDefData.supportRevocation ?? false),
-      supportRevocation: Boolean(credDefData.support_revocation ?? credDefData.supportRevocation ?? false),
-      revocation_registry_size: credDefData.revocation_registry_size || credDefData.revocationRegistrySize || 1000,
-    };
-    const res = await issuerApi.createCredDef(payload);
-    return res;
-  },
-
-  getConnections: async () => {
-    try {
-      const res = await connectionsApi.listConnections();
-      const rawList = Array.isArray(res?.data)
-        ? res.data
-        : Array.isArray(res?.results)
-          ? res.results
-          : Array.isArray(res)
-            ? res
-            : [];
-      return { success: true, data: rawList };
-    } catch (err) {
-      console.warn("getConnections skipped (subwallet pending):", err?.message || err);
-      return { success: true, data: [], unprovisioned: true };
-    }
-  },
-
-  createInvitation: async (alias) => {
-    const res = await connectionsApi.createInvitation({ alias });
-    return res;
-  },
-
-  receiveInvitation: async (invitationPayload) => {
-    const res = await connectionsApi.receiveInvitation(invitationPayload);
-    return res;
   },
 
   getCredentials: async () => {
@@ -494,53 +527,321 @@ export const issuerService = {
   },
 
   createCredentialDefinition: async (credDefData) => {
+    const sId = credDefData.schemaId || credDefData.schema_id;
+    const sName = credDefData.schemaName || credDefData.schema_name;
+    const sVer = credDefData.schemaVersion || credDefData.schema_version || "1.0";
+    const tag = credDefData.tag || "default";
+    const supportRev = credDefData.supportRevocation ?? credDefData.support_revocation ?? false;
+    const revSize = credDefData.revocationRegistrySize ?? credDefData.revocation_registry_size ?? 1000;
+
     const payload = {
-      schema_id: credDefData.schemaId || credDefData.schema_id,
-      schema_name: credDefData.schemaName || credDefData.schema_name,
-      schema_version: credDefData.schemaVersion || credDefData.schema_version || "1.0",
+      schema_id: sId,
+      schemaId: sId,
+      schema_name: sName,
+      schemaName: sName,
+      schema_version: sVer,
+      schemaVersion: sVer,
       attributes: credDefData.attributes || [],
-      tag: credDefData.tag || "default",
-      support_revocation: credDefData.supportRevocation ?? credDefData.support_revocation ?? false,
-      revocation_registry_size: credDefData.revocationRegistrySize ?? credDefData.revocation_registry_size ?? 1000,
+      tag,
+      support_revocation: supportRev,
+      supportRevocation: supportRev,
+      revocation_registry_size: revSize,
+      revocationRegistrySize: revSize,
     };
     const res = await issuerApi.createCredDef(payload);
     return res;
   },
 
-  issueCredential: async (credentialDefId, holderDidOrConnId, attributes) => {
-    const formattedAttributes =
-      typeof attributes === "object" && !Array.isArray(attributes)
-        ? Object.entries(attributes).map(([name, value]) => ({ name, value: String(value) }))
-        : attributes;
+  /**
+   * Create a schema and a credential definition in one step.
+   *
+   * Payload:
+   * {
+   *   schema_name:        string,
+   *   schema_version:     string,
+   *   attributes:         string[],
+   *   tag:                string,
+   *   support_revocation: boolean
+   * }
+   *
+   * @param payload - the object above
+   * @returns the API response (contains the new `credential_definition_id`)
+   */
+  createSchemaAndCredDef: async (payload) => {
+    const res = await apiClient.post(ENDPOINTS.ISSUER.CREDENTIAL_DEFINITIONS, payload);
+    return res.data;
+  },
+
+  issueCredential: async (credentialDefId, holderDidOrConnId, attributes, schemaDetails = {}) => {
+    let attributesArray = [];
+    let attributesObject = {};
+
+    if (Array.isArray(attributes)) {
+      attributesArray = attributes.map((attr) => {
+        if (typeof attr === "object" && attr !== null) {
+          const name = attr.name || attr.name_tag || "";
+          const value = String(attr.value ?? "");
+          attributesObject[name] = value;
+          return { name, value };
+        }
+        const strAttr = String(attr);
+        attributesObject[strAttr] = "";
+        return { name: strAttr, value: "" };
+      });
+    } else if (attributes && typeof attributes === "object") {
+      attributesObject = { ...attributes };
+      attributesArray = Object.entries(attributes).map(([name, value]) => ({
+        name,
+        value: String(value ?? ""),
+      }));
+    }
+
+    // Clean connection ID
+    const cleanConnId = String(holderDidOrConnId || "").trim();
+
+    // Ensure credDefId is valid
+    let cleanCredDefId = credentialDefId;
+    const parts = String(cleanCredDefId || "").split(":");
+    const storedUser = localStorage.getItem("user");
+    let storedIssuerDid = "KkFmaEgH6pkHJGnyMtpBm2";
+    if (storedUser) {
+      try {
+        const u = JSON.parse(storedUser);
+        if (u.rawDid || u.did) {
+          storedIssuerDid = String(u.rawDid || u.did).replace(/^did:sov:/, "");
+        }
+      } catch {
+        // ignore
+      }
+    }
+    const issuerDid = parts[0] && parts[0].length >= 10 ? parts[0] : storedIssuerDid;
+    const seqNo = schemaDetails?.seqNo || (parts.length >= 4 && !isNaN(Number(parts[3])) ? parts[3] : "219");
+
+    if (!cleanCredDefId || typeof cleanCredDefId !== "string" || !cleanCredDefId.includes(":3:CL:")) {
+      cleanCredDefId = `${issuerDid}:3:CL:${seqNo}:${parts[4] || "default"}`;
+    }
+
+    // Crucial: Always resolve and pass schema_id to prevent ACA-Py error:
+    // "Could not determine schema attributes. If you did not create the schema, then you need to provide the schema_id.."
+    const effectiveSchemaId =
+      schemaDetails?.schemaId ||
+      schemaDetails?.schema_id ||
+      (schemaDetails?.schemaName
+        ? `${issuerDid}:2:${schemaDetails.schemaName}:${schemaDetails.schemaVersion || "1.0"}`
+        : String(seqNo));
+
+    const effectiveSchemaName =
+      schemaDetails?.schemaName || schemaDetails?.schema_name || parts[4] || "default";
+    const effectiveSchemaVersion =
+      schemaDetails?.schemaVersion || schemaDetails?.schema_version || "1.0";
 
     const payload = {
-      credDefId: credentialDefId,
-      connectionId: holderDidOrConnId,
-      attributes: formattedAttributes,
+      // Primary property expected by backend POST /api/v1/issuer/issue-credential
+      credDefId: cleanCredDefId,
+      cred_def_id: cleanCredDefId,
+      credential_definition_id: cleanCredDefId,
+      credentialDefinitionId: cleanCredDefId,
+
+      schemaId: effectiveSchemaId,
+      schema_id: effectiveSchemaId,
+      schemaName: effectiveSchemaName,
+      schema_name: effectiveSchemaName,
+      schemaVersion: effectiveSchemaVersion,
+      schema_version: effectiveSchemaVersion,
+      schemaIssuerDid: issuerDid,
+      schema_issuer_did: issuerDid,
+      issuerDid,
+      issuer_did: issuerDid,
+
+      connectionId: cleanConnId,
+      connection_id: cleanConnId,
+      holderDid: cleanConnId,
+      holder_did: cleanConnId,
+
+      // Pass attributes as ARRAY (RFC 0453 Step 21 requirement)
+      attributes: attributesArray,
+      raw_attributes: attributesObject,
+      attribute_values: attributesObject,
+      attributes_values: attributesObject,
+
       comment: "Official verifiable credential issuance",
       auto_issue: true,
+      auto_remove: false,
+
+      // Aries RFC 0453 Issue Credential 2.0 structure
+      credential_preview: {
+        "@type": "issue-credential/2.0/credential-preview",
+        attributes: attributesArray,
+      },
+      filter: {
+        anoncreds: {
+          cred_def_id: cleanCredDefId,
+          schema_id: effectiveSchemaId,
+          schema_name: effectiveSchemaName,
+          schema_version: effectiveSchemaVersion,
+          schema_issuer_did: issuerDid,
+          issuer_did: issuerDid,
+        },
+        indy: {
+          cred_def_id: cleanCredDefId,
+          schema_id: effectiveSchemaId,
+          schema_name: effectiveSchemaName,
+          schema_version: effectiveSchemaVersion,
+          schema_issuer_did: issuerDid,
+          issuer_did: issuerDid,
+        },
+      },
     };
-    const res = await issuerApi.issueCredential(payload);
-    return res;
+
+    try {
+      const res = await issuerApi.issueCredential(payload);
+      if (res?.success) return res;
+      // If error message indicates failure, check if sendCredentialOffer is available as fallback
+      if (res && res.success === false && issuerApi.sendCredentialOffer) {
+        try {
+          const fallbackPayload = {
+            connection_id: cleanConnId,
+            filter: {
+              anoncreds: {
+                cred_def_id: cleanCredDefId,
+                schema_id: effectiveSchemaId,
+                schema_name: effectiveSchemaName,
+                schema_version: effectiveSchemaVersion,
+                schema_issuer_did: issuerDid,
+                issuer_did: issuerDid,
+              },
+              indy: {
+                cred_def_id: cleanCredDefId,
+                schema_id: effectiveSchemaId,
+                schema_name: effectiveSchemaName,
+                schema_version: effectiveSchemaVersion,
+                schema_issuer_did: issuerDid,
+                issuer_did: issuerDid,
+              },
+            },
+            credential_preview: {
+              "@type": "issue-credential/2.0/credential-preview",
+              attributes: attributesArray,
+            },
+            comment: "Official verifiable credential issuance",
+            auto_issue: true,
+          };
+          const fallbackRes = await issuerApi.sendCredentialOffer(fallbackPayload);
+          if (fallbackRes?.success || fallbackRes?.state) {
+            return { success: true, data: fallbackRes?.data || fallbackRes };
+          }
+        } catch {
+          // fallback failed, return original res
+        }
+      }
+      return res;
+    } catch (err) {
+      if (issuerApi.sendCredentialOffer) {
+        try {
+          const fallbackPayload = {
+            connection_id: cleanConnId,
+            filter: {
+              anoncreds: {
+                cred_def_id: cleanCredDefId,
+                schema_id: effectiveSchemaId,
+                schema_name: effectiveSchemaName,
+                schema_version: effectiveSchemaVersion,
+                schema_issuer_did: issuerDid,
+                issuer_did: issuerDid,
+              },
+              indy: {
+                cred_def_id: cleanCredDefId,
+                schema_id: effectiveSchemaId,
+                schema_name: effectiveSchemaName,
+                schema_version: effectiveSchemaVersion,
+                schema_issuer_did: issuerDid,
+                issuer_did: issuerDid,
+              },
+            },
+            credential_preview: {
+              "@type": "issue-credential/2.0/credential-preview",
+              attributes: attributesArray,
+            },
+            comment: "Official verifiable credential issuance",
+            auto_issue: true,
+          };
+          const fallbackRes = await issuerApi.sendCredentialOffer(fallbackPayload);
+          if (fallbackRes?.success || fallbackRes?.state) {
+            return { success: true, data: fallbackRes?.data || fallbackRes };
+          }
+        } catch {
+          // ignore
+        }
+      }
+      throw err;
+    }
   },
 
   revokeCredential: async (recordOrId, reason) => {
-    let payload = {};
+    let credRevId = "1";
+    let revRegId = "";
+    let credExId = "";
+    let connectionId = "";
+
     if (typeof recordOrId === "object" && recordOrId !== null) {
-      payload = {
-        credRevId: recordOrId.credRevId || recordOrId.cred_rev_id || recordOrId.revocationId || "1",
-        revRegId: recordOrId.revRegId || recordOrId.rev_reg_id || recordOrId.revocationRegistryId || "",
-        publish: true,
-        reason: reason || "Administrative revocation",
-      };
+      const raw = recordOrId.raw || recordOrId;
+      credExId = recordOrId.id || raw.cred_ex_id || raw.id || "";
+      connectionId = recordOrId.connectionId || raw.connection_id || recordOrId.holderDid || "";
+      credRevId =
+        recordOrId.credRevId ||
+        recordOrId.cred_rev_id ||
+        raw.cred_rev_id ||
+        raw.revocationId ||
+        raw.revocation_id ||
+        raw.rev_id ||
+        raw.by_format?.cred_issue?.indy?.cred_rev_id ||
+        "1";
+      revRegId =
+        recordOrId.revRegId ||
+        recordOrId.rev_reg_id ||
+        raw.rev_reg_id ||
+        raw.revoc_reg_id ||
+        raw.revocationRegistryId ||
+        raw.revocation_registry_id ||
+        raw.by_format?.cred_issue?.indy?.rev_reg_id ||
+        "";
+
+      // If revRegId is still missing, try looking up active revocation registry for this credDef
+      if (!revRegId) {
+        const credDefId = recordOrId.credentialDefinitionId || raw.cred_def_id || raw.credential_definition_id;
+        if (credDefId && issuerApi.getActiveRevocationRegistry) {
+          try {
+            const regRes = await issuerApi.getActiveRevocationRegistry(credDefId);
+            const foundRegId =
+              regRes?.data?.revoc_reg_id ||
+              regRes?.data?.revRegId ||
+              regRes?.data?.rev_reg_id ||
+              regRes?.revoc_reg_id;
+            if (foundRegId) revRegId = foundRegId;
+          } catch {
+            // ignore
+          }
+        }
+      }
     } else {
-      payload = {
-        credRevId: String(recordOrId),
-        revRegId: "",
-        publish: true,
-        reason: reason || "Administrative revocation",
-      };
+      credExId = String(recordOrId);
+      credRevId = "1";
     }
+
+    const payload = {
+      credRevId: String(credRevId),
+      cred_rev_id: String(credRevId),
+      revRegId: revRegId,
+      rev_reg_id: revRegId,
+      credExId,
+      cred_ex_id: credExId,
+      connectionId,
+      connection_id: connectionId,
+      publish: true,
+      notify: true,
+      reason: reason || "Administrative revocation",
+    };
+
     const res = await issuerApi.revokeCredential(payload);
     return res;
   },
@@ -554,8 +855,13 @@ export const issuerService = {
   },
 
   getConnections: async () => {
-    const res = await connectionsApi.listConnections();
-    return res;
+    try {
+      const res = await connectionsApi.listConnections();
+      return { success: true, data: extractList(res) };
+    } catch (err) {
+      console.warn("getConnections error:", err?.message || err);
+      return { success: true, data: [] };
+    }
   },
 
   getQrRecords: async () => {
@@ -747,8 +1053,13 @@ export const holderService = {
   },
 
   getConnections: async () => {
-    const res = await connectionsApi.listConnections();
-    return res;
+    try {
+      const res = await connectionsApi.listConnections();
+      return { success: true, data: extractList(res) };
+    } catch (err) {
+      console.warn("getConnections error:", err?.message || err);
+      return { success: true, data: [] };
+    }
   },
 };
 
@@ -849,8 +1160,13 @@ export const verifierService = {
   },
 
   getConnections: async () => {
-    const res = await connectionsApi.listConnections();
-    return res;
+    try {
+      const res = await connectionsApi.listConnections();
+      return { success: true, data: extractList(res) };
+    } catch (err) {
+      console.warn("getConnections error:", err?.message || err);
+      return { success: true, data: [] };
+    }
   },
 
   createQrRequest: async (payload) => {
@@ -1159,12 +1475,12 @@ export const adminService = {
           plugins: Array.isArray(pluginsData)
             ? pluginsData
             : [
-                "aries_cloudagent.protocols.issue_credential.v2_0",
-                "aries_cloudagent.protocols.present_proof.v2_0",
-                "aries_cloudagent.revocation",
-                "aries_cloudagent.connections",
-                "aries_cloudagent.out_of_band",
-              ],
+              "aries_cloudagent.protocols.issue_credential.v2_0",
+              "aries_cloudagent.protocols.present_proof.v2_0",
+              "aries_cloudagent.revocation",
+              "aries_cloudagent.connections",
+              "aries_cloudagent.out_of_band",
+            ],
         },
       };
     } catch {

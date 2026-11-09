@@ -97,9 +97,11 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
   const [isPublishingSchema, setIsPublishingSchema] = useState(false);
   const [schemaAttributes, setSchemaAttributes] = useState(["fullName", "email", "role"]);
   const [newAttributeInput, setNewAttributeInput] = useState("");
+  const [publishingCredDefSchemaId, setPublishingCredDefSchemaId] = useState(null);
 
   // Issue dynamic form
   const [selectedCredDefForIssue, setSelectedCredDefForIssue] = useState(null);
+  const [loadingIssueAttributes, setLoadingIssueAttributes] = useState(false);
   const [issueForm] = Form.useForm();
   const [schemaForm] = Form.useForm();
   const [credDefForm] = Form.useForm();
@@ -119,13 +121,115 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
 
       if (didRes?.success && didRes.data) setDidInfo(didRes.data);
       if (statsRes?.data) setDashboardStats(statsRes.data);
-      if (schemaRes?.success) setSchemas(Array.isArray(schemaRes.data) ? schemaRes.data : []);
-      if (defRes?.success) {
-        const defList = Array.isArray(defRes.data) ? defRes.data : [];
-        setCredDefs(defList);
-        if (defList.length > 0 && !selectedCredDefForIssue) {
-          setSelectedCredDefForIssue(defList[0]);
+
+      const rawSchemas = Array.isArray(schemaRes?.data) ? schemaRes.data : [];
+      const rawDefs = Array.isArray(defRes?.data) ? defRes.data : [];
+
+      const currentIssuerDid = (
+        didRes?.data?.rawDid ||
+        didRes?.data?.did ||
+        didInfo?.rawDid ||
+        didInfo?.did ||
+        user?.rawDid ||
+        user?.did ||
+        "KkFmaEgH6pkHJGnyMtpBm2"
+      ).replace(/^did:sov:/, "");
+
+      const enrichedDefs = rawDefs.map((def) => {
+        const parts = String(def.id || def.cred_def_id || "").split(":");
+        const seqNo = def.seqNo || (parts.length >= 4 && !isNaN(Number(parts[3])) ? parts[3] : null);
+        const matchingSchema = rawSchemas.find(
+          (s) =>
+            s.id === def.schemaId ||
+            s.schema_id === def.schemaId ||
+            (seqNo && String(s.seqNo) === String(seqNo)) ||
+            (s.seqNo && def.id && def.id.includes(`:${s.seqNo}:`))
+        );
+        let finalId = def.id || def.cred_def_id;
+        if (!finalId || !finalId.includes(":3:CL:")) {
+          const sNo = seqNo || matchingSchema?.seqNo;
+          if (sNo) finalId = `${currentIssuerDid}:3:CL:${sNo}:${def.tag || "default"}`;
         }
+        return {
+          ...def,
+          id: finalId,
+          cred_def_id: finalId,
+          credentialDefinitionId: finalId,
+          seqNo: seqNo || matchingSchema?.seqNo,
+          schemaName: matchingSchema?.name || matchingSchema?.schemaName || def.schemaName || def.tag || "Credential Template",
+          schemaId: matchingSchema?.id || def.schemaId,
+          attributes: matchingSchema?.attributes || def.attributes || [],
+        };
+      });
+
+      // Ensure all ledger schemas with a seqNo are represented in credDefs
+      rawSchemas.forEach((s) => {
+        if (s.seqNo) {
+          const alreadyExists = enrichedDefs.some(
+            (d) =>
+              (d.seqNo && String(d.seqNo) === String(s.seqNo)) ||
+              (d.id && d.id.includes(`:${s.seqNo}:`))
+          );
+          if (!alreadyExists) {
+            const synthCredDefId = `${currentIssuerDid}:3:CL:${s.seqNo}:default`;
+            enrichedDefs.push({
+              id: synthCredDefId,
+              cred_def_id: synthCredDefId,
+              credentialDefinitionId: synthCredDefId,
+              schemaId: s.id || s.schema_id,
+              seqNo: s.seqNo,
+              tag: "default",
+              supportRevocation: false,
+              schemaName: s.name || s.schemaName || "Credential Template",
+              attributes: s.attributes || [],
+            });
+          }
+        }
+      });
+
+      // Cross-link schemas and credential definitions so both hold references to each other
+      const schemasWithCredDefs = rawSchemas.map((s) => {
+        const matchingDef = enrichedDefs.find(
+          (d) =>
+            d.schemaId === s.id ||
+            d.schema_id === s.id ||
+            (s.seqNo && String(d.seqNo) === String(s.seqNo)) ||
+            (d.id && s.seqNo && d.id.includes(`:${s.seqNo}:`)) ||
+            (s.name && d.schemaName && d.schemaName.toLowerCase() === s.name.toLowerCase()) ||
+            (d.tag && s.name && s.name.toLowerCase().includes(d.tag.toLowerCase()))
+        );
+        return {
+          ...s,
+          credDefId: matchingDef?.id || matchingDef?.cred_def_id || null,
+          cred_def_id: matchingDef?.id || matchingDef?.cred_def_id || null,
+          credDefTag: matchingDef?.tag || null,
+        };
+      });
+
+      // Also enrich defs with matching schema names and attributes
+      enrichedDefs.forEach((d) => {
+        const matchingSchema = schemasWithCredDefs.find(
+          (s) =>
+            s.id === d.schemaId ||
+            s.schema_id === d.schemaId ||
+            (d.seqNo && String(s.seqNo) === String(d.seqNo)) ||
+            (s.seqNo && d.id && d.id.includes(`:${s.seqNo}:`)) ||
+            (s.name && d.schemaName && d.schemaName.toLowerCase() === s.name.toLowerCase()) ||
+            (d.tag && s.name && s.name.toLowerCase().includes(d.tag.toLowerCase()))
+        );
+        if (matchingSchema) {
+          d.schemaName = matchingSchema.name || matchingSchema.schemaName || d.schemaName;
+          if (matchingSchema.attributes && matchingSchema.attributes.length > 0) {
+            d.attributes = matchingSchema.attributes;
+          }
+          d.schemaId = matchingSchema.id || d.schemaId;
+        }
+      });
+
+      setSchemas(schemasWithCredDefs);
+      setCredDefs(enrichedDefs);
+      if (enrichedDefs.length > 0 && !selectedCredDefForIssue) {
+        setSelectedCredDefForIssue(enrichedDefs[0]);
       }
       if (connRes?.success) setConnections(Array.isArray(connRes.data) ? connRes.data : []);
       if (actRes?.success) setActivities(Array.isArray(actRes.data) ? actRes.data : []);
@@ -211,6 +315,8 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
       setSchemaPreviewData({
         name: values.name.trim(),
         version: (values.version || "1.0").trim(),
+        tag: (values.tag || "default").trim(),
+        supportRevocation: values.supportRevocation !== false,
         attributes: [...schemaAttributes],
       });
       setSchemaCreationStep(1);
@@ -227,56 +333,89 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
     if (!schemaPreviewData) return;
     setIsPublishingSchema(true);
     try {
-      const res = await issuerService.createSchema({
-        name: schemaPreviewData.name,
-        version: schemaPreviewData.version || "1.0",
+      // Use the unified schema & credential definition creation API
+      // POST /api/v1/issuer/credential-definitions
+      const payload = {
+        schema_name: schemaPreviewData.name,
+        schema_version: schemaPreviewData.version || "1.0",
         attributes: schemaPreviewData.attributes,
-      });
+        tag: schemaPreviewData.tag || "default",
+        support_revocation: schemaPreviewData.supportRevocation !== false,
+      };
 
-      if (res?.success) {
-        // Automatically provision credential definition in the background
-        try {
-          const createdSchemaId = res.data?.schema_id || res.data?.schemaId || res.data?.id;
-          if (createdSchemaId) {
-            await issuerService.createCredentialDefinition({
-              schemaId: createdSchemaId,
-              tag: "default",
-              supportRevocation: false,
-              revocationRegistrySize: 1000,
-            });
-          }
-        } catch {
-          // gracefully proceed
-        }
-        message.success(`Schema '${schemaPreviewData.name}' registered & published on ledger!`);
+      const res = await issuerService.createSchemaAndCredDef(payload);
+
+      if (
+        res?.success ||
+        res?.credential_definition_id ||
+        res?.data?.credential_definition_id ||
+        res?.schema_id ||
+        res?.data?.schema_id
+      ) {
+        message.success(`Schema '${schemaPreviewData.name}' & Credential Definition registered on ledger!`);
         setIsSchemaModalOpen(false);
         setSchemaCreationStep(0);
         setSchemaPreviewData(null);
         schemaForm.resetFields();
         setSchemaAttributes(["fullName", "email", "role"]);
-        loadData();
+        await loadData();
+      } else {
+        message.error(res?.message || "Failed to create Schema & Credential Definition");
       }
     } catch (err) {
-      message.error(err.message || "Failed to publish schema to ledger");
+      message.error(err.message || "Failed to publish schema & cred def to ledger");
     } finally {
       setIsPublishingSchema(false);
     }
   };
 
-  // Create Credential Definition
-  const handleCreateCredDef = async (values) => {
+  // Publish Credential Definition for an existing schema
+  const handlePublishCredDefForSchema = async (schemaRecord) => {
+    if (!schemaRecord?.id) return;
+    setPublishingCredDefSchemaId(schemaRecord.id);
     try {
       const res = await issuerService.createCredentialDefinition({
+        schemaId: schemaRecord.id,
+        schemaName: schemaRecord.name,
+        schemaVersion: schemaRecord.version || "1.0",
+        attributes: schemaRecord.attributes || [],
+        tag: "default",
+        supportRevocation: false,
+        revocationRegistrySize: 1000,
+      });
+      if (res?.success) {
+        message.success(`Credential Definition registered on ledger for '${schemaRecord.name}'!`);
+        await loadData();
+      } else {
+        message.error(res?.message || "Failed to publish Credential Definition");
+      }
+    } catch (err) {
+      message.error(err?.message || "Failed to publish Credential Definition to ledger");
+    } finally {
+      setPublishingCredDefSchemaId(null);
+    }
+  };
+
+  // Create Credential Definition from modal
+  const handleCreateCredDef = async (values) => {
+    try {
+      const targetSchema = schemas.find(s => s.id === values.schemaId);
+      const res = await issuerService.createCredentialDefinition({
         schemaId: values.schemaId,
-        tag: values.tag || "template-1",
+        schemaName: targetSchema?.name,
+        schemaVersion: targetSchema?.version || "1.0",
+        attributes: targetSchema?.attributes || [],
+        tag: values.tag || "default",
         supportRevocation: values.supportRevocation || false,
-        revocationRegistrySize: values.revocationRegistrySize || 100,
+        revocationRegistrySize: values.revocationRegistrySize || 1000,
       });
       if (res?.success) {
         message.success("Credential Definition registered on ledger!");
         setIsCredDefModalOpen(false);
         credDefForm.resetFields();
-        loadData();
+        await loadData();
+      } else {
+        message.error(res?.message || "Failed to create Credential Definition");
       }
     } catch (err) {
       message.error(err.message || "Failed to create Credential Definition");
@@ -284,34 +423,207 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
   };
 
   // Dynamic Issue Credential
-  const handleCredDefChange = (defId) => {
+  const handleCredDefChange = async (defId) => {
     const found = credDefs.find((d) => d.id === defId);
-    setSelectedCredDefForIssue(found);
+    setSelectedCredDefForIssue(found || null);
+
+    // If attributes are missing, dynamically fetch from ledger definition and schema
+    if (found && (!found.attributes || found.attributes.length === 0)) {
+      setLoadingIssueAttributes(true);
+      try {
+        const parts = String(found.id || "").split(":");
+        const seqNo = found.seqNo || (parts.length >= 4 && !isNaN(Number(parts[3])) ? parts[3] : null);
+
+        // 1. Check if matching schema exists in safeSchemas
+        let matching = safeSchemas.find(
+          (s) =>
+            s.id === found.schemaId ||
+            s.schema_id === found.schemaId ||
+            (seqNo && String(s.seqNo) === String(seqNo)) ||
+            (seqNo && s.id && s.id.includes(`:${seqNo}:`))
+        );
+
+        if (matching?.attributes && matching.attributes.length > 0) {
+          found.attributes = matching.attributes;
+          found.schemaName = matching.name || matching.schemaName || found.schemaName;
+          found.schemaId = matching.id || matching.schema_id;
+          setSelectedCredDefForIssue({ ...found });
+          setLoadingIssueAttributes(false);
+          return;
+        }
+
+        // 2. Query Cred Def details from ledger
+        const cdRes = await issuerApi.getCredDef(found.id);
+        const cd = cdRes?.data?.credential_definition || cdRes?.credential_definition || cdRes?.data || cdRes;
+        const schemaIdFromCd = cd?.schemaId || cd?.schema_id || seqNo;
+        let attrs = [];
+
+        if (cd?.value?.primary?.r) {
+          attrs = Object.keys(cd.value.primary.r).filter((k) => k !== "master_secret");
+        }
+
+        if (schemaIdFromCd) {
+          try {
+            const sRes = await issuerApi.getSchema(schemaIdFromCd);
+            const sData = sRes?.data?.schema || sRes?.schema || sRes?.data;
+            const fetched = sData?.attrNames || sData?.attributes || sData?.attr_names || [];
+            if (Array.isArray(fetched) && fetched.length > 0) {
+              attrs = fetched;
+            }
+            if (sData?.name) {
+              found.schemaName = sData.name;
+            }
+            found.schemaId = sData?.id || schemaIdFromCd;
+          } catch {
+            // ignore
+          }
+        }
+
+        if (attrs.length > 0) {
+          found.attributes = attrs;
+          setSelectedCredDefForIssue({ ...found });
+        }
+      } catch (err) {
+        console.warn("Could not dynamically load cred def attributes:", err);
+      } finally {
+        setLoadingIssueAttributes(false);
+      }
+    }
+  };
+
+  const handleOpenIssueModal = () => {
+    if (credDefs.length > 0) {
+      const def = selectedCredDefForIssue || credDefs[0];
+      setSelectedCredDefForIssue(def);
+      issueForm.setFieldsValue({
+        credentialDefinitionId: def.id,
+        holderDid: connections[0]?.connection_id || connections[0]?.their_did || "",
+      });
+      if (def?.id) {
+        handleCredDefChange(def.id);
+      }
+    }
+    setIsIssueModalOpen(true);
   };
 
   const handleIssueCredential = async (values) => {
     try {
-      const attrPayload = {};
-      const targetSchema = schemas.find((s) => s.id === selectedCredDefForIssue?.schemaId);
-      const attrs = targetSchema?.attributes || ["fullName", "email"];
+      if (!values.credentialDefinitionId) {
+        message.warning("Please select a published Credential Template");
+        return;
+      }
+      if (!values.holderDid) {
+        message.warning("Please select a recipient holder");
+        return;
+      }
 
-      attrs.forEach((attr) => {
-        attrPayload[attr] = values[attr] || "";
+      // 1. Resolve true AnonCreds Credential Definition ID
+      const selectedDef =
+        credDefs.find((d) => d.id === values.credentialDefinitionId || d.cred_def_id === values.credentialDefinitionId) ||
+        selectedCredDefForIssue ||
+        credDefs[0];
+
+      let effectiveCredDefId = selectedDef?.cred_def_id || selectedDef?.id || values.credentialDefinitionId;
+
+      const targetSchema =
+        schemas.find(
+          (s) =>
+            s.id === selectedDef?.schemaId ||
+            s.schema_id === selectedDef?.schemaId ||
+            (selectedDef?.seqNo && String(s.seqNo) === String(selectedDef.seqNo))
+        ) ||
+        schemas.find((s) => effectiveCredDefId && s.seqNo && effectiveCredDefId.includes(`:${s.seqNo}:`));
+
+      const parts = String(effectiveCredDefId || "").split(":");
+      const seqNo =
+        selectedDef?.seqNo ||
+        targetSchema?.seqNo ||
+        (parts.length >= 4 && !isNaN(Number(parts[3])) ? parts[3] : "219");
+
+      const issuerDid = (
+        didInfo?.rawDid ||
+        didInfo?.did ||
+        user?.rawDid ||
+        user?.did ||
+        parts[0] ||
+        "KkFmaEgH6pkHJGnyMtpBm2"
+      ).replace(/^did:sov:/, "");
+
+      if (!effectiveCredDefId || !effectiveCredDefId.includes(":3:CL:")) {
+        if (seqNo) {
+          effectiveCredDefId = `${issuerDid}:3:CL:${seqNo}:${selectedDef?.tag || "default"}`;
+        }
+      }
+
+      // Explicitly resolve canonical schema ID to pass to ACA-Py
+      const effectiveSchemaId =
+        targetSchema?.id ||
+        targetSchema?.schema_id ||
+        selectedDef?.schemaId ||
+        (targetSchema?.name ? `${issuerDid}:2:${targetSchema.name}:${targetSchema.version || "1.0"}` : String(seqNo));
+
+      const schemaAttrs =
+        selectedDef?.attributes && selectedDef.attributes.length > 0
+          ? selectedDef.attributes
+          : targetSchema?.attributes && targetSchema.attributes.length > 0
+            ? targetSchema.attributes
+            : activeCredDefSchema?.attributes && activeCredDefSchema.attributes.length > 0
+              ? activeCredDefSchema.attributes
+              : [];
+
+      if (schemaAttrs.length === 0) {
+        message.warning("Please wait for this template's claim attributes to load or select a published template.");
+        return;
+      }
+
+      // 2. Build RFC 0453 preview attributes array where names strictly match the schema attribute names
+      const attributesArray = [];
+      const attributesObject = {};
+
+      schemaAttrs.forEach((attrName) => {
+        // Case-insensitive lookup in form values so ledger schema match always succeeds
+        const foundKey = Object.keys(values).find(
+          (k) => k.toLowerCase() === attrName.toLowerCase()
+        );
+        const val = foundKey !== undefined && values[foundKey] !== undefined ? String(values[foundKey]) : "";
+        attributesArray.push({ name: attrName, value: val });
+        attributesObject[attrName] = val;
       });
 
+      // Fallback: if schemaAttrs is empty, map all non-system values
+      if (attributesArray.length === 0) {
+        Object.entries(values).forEach(([k, v]) => {
+          if (k !== "credentialDefinitionId" && k !== "holderDid" && v !== undefined && v !== null) {
+            attributesArray.push({ name: k, value: String(v) });
+            attributesObject[k] = String(v);
+          }
+        });
+      }
+
+      const schemaDetails = {
+        schemaId: effectiveSchemaId,
+        schemaName: targetSchema?.name || selectedDef?.schemaName || selectedDef?.tag || "default",
+        schemaVersion: targetSchema?.version || "1.0",
+        seqNo,
+        issuerDid,
+      };
+
       const res = await issuerService.issueCredential(
-        values.credentialDefinitionId,
+        effectiveCredDefId,
         values.holderDid,
-        attrPayload
+        attributesArray,
+        schemaDetails
       );
       if (res?.success) {
         message.success("Credential offer sent to holder!");
         setIsIssueModalOpen(false);
         issueForm.resetFields();
-        loadData();
+        await loadData();
+      } else {
+        message.error(res?.message || "Failed to issue credential");
       }
-    } catch {
-      message.error("Failed to issue credential");
+    } catch (err) {
+      message.error(err?.message || "Failed to issue credential");
     }
   };
 
@@ -325,7 +637,7 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
   const handleConfirmRevoke = async () => {
     if (!selectedRecordToRevoke) return;
     try {
-      const res = await issuerService.revokeCredential(selectedRecordToRevoke.id, revokeReason);
+      const res = await issuerService.revokeCredential(selectedRecordToRevoke, revokeReason);
       if (res?.success) {
         message.success("Credential successfully revoked on ledger!");
         setIsRevokeModalOpen(false);
@@ -553,8 +865,19 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
       String(a?.holderDid || a?.holder_did || a?.holderName || "").toLowerCase().includes(searchFilter.toLowerCase())
   );
 
-  const activeCredDefSchema = safeSchemas.find((s) => s?.id === selectedCredDefForIssue?.schemaId);
-  const currentAttributesForIssue = activeCredDefSchema?.attributes || ["fullName", "email"];
+  const activeCredDefSchema = safeSchemas.find(
+    (s) =>
+      s?.id === selectedCredDefForIssue?.schemaId ||
+      s?.schema_id === selectedCredDefForIssue?.schemaId ||
+      (selectedCredDefForIssue?.seqNo && String(s?.seqNo) === String(selectedCredDefForIssue.seqNo)) ||
+      (selectedCredDefForIssue?.id && s?.seqNo && selectedCredDefForIssue.id.includes(`:${s.seqNo}:`))
+  );
+  const currentAttributesForIssue =
+    activeCredDefSchema?.attributes && activeCredDefSchema.attributes.length > 0
+      ? activeCredDefSchema.attributes
+      : selectedCredDefForIssue?.attributes && selectedCredDefForIssue.attributes.length > 0
+        ? selectedCredDefForIssue.attributes
+        : [];
 
   // Activity columns
   const activityColumns = [
@@ -675,12 +998,46 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
       render: (attrs) => (
         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
           {attrs?.map((a) => (
-            <Tag key={a} color="geekblue">
-              {a}
-            </Tag>
+            <Tag key={a} color="geekblue">{a}</Tag>
           ))}
         </div>
       ),
+    },
+    {
+      title: "Cred Def ID",
+      dataIndex: "credentialDefinitionId",
+      key: "credentialDefinitionId",
+      render: (_, record) => {
+        const matching = credDefs.find(
+          (cd) =>
+            cd.schemaId === record.id ||
+            cd.schema_id === record.id ||
+            (record.seqNo && String(cd.seqNo) === String(record.seqNo)) ||
+            (cd.id && record.seqNo && cd.id.includes(`:${record.seqNo}:`))
+        );
+        if (matching) {
+          const cdId = matching.credentialDefinitionId || matching.id;
+          return (
+            <Tooltip title={cdId}>
+              <Tag color="cyan" style={{ fontFamily: "monospace", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>
+                {cdId}
+              </Tag>
+            </Tooltip>
+          );
+        }
+        return (
+          <Button
+            size="small"
+            type="primary"
+            ghost
+            loading={publishingCredDefSchemaId === record.id}
+            onClick={() => handlePublishCredDefForSchema(record)}
+            style={{ fontSize: 11 }}
+          >
+            Publish Cred Def
+          </Button>
+        );
+      },
     },
     {
       title: "Status",
@@ -691,11 +1048,32 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
     {
       title: "Action",
       key: "action",
-      render: (_, record) => (
-        <Button size="small" icon={<EyeOutlined />} onClick={() => setSelectedSchemaForView(record)}>
-          View Template
-        </Button>
-      ),
+      render: (_, record) => {
+        const matching = credDefs.find(
+          (cd) =>
+            cd.schemaId === record.id ||
+            cd.schema_id === record.id ||
+            (record.seqNo && String(cd.seqNo) === String(record.seqNo)) ||
+            (cd.id && record.seqNo && cd.id.includes(`:${record.seqNo}:`))
+        );
+        return (
+          <Space>
+            <Button size="small" icon={<EyeOutlined />} onClick={() => setSelectedSchemaForView(record)}>
+              View Template
+            </Button>
+            {!matching && (
+              <Button
+                size="small"
+                type="primary"
+                loading={publishingCredDefSchemaId === record.id}
+                onClick={() => handlePublishCredDefForSchema(record)}
+              >
+                Create Cred Def
+              </Button>
+            )}
+          </Space>
+        );
+      },
     },
   ];
 
@@ -1155,7 +1533,7 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
                           <Button
                             type="primary"
                             icon={<PlusOutlined />}
-                            onClick={() => setIsIssueModalOpen(true)}
+                            onClick={handleOpenIssueModal}
                             style={{ background: "#1B365D", borderColor: "#1B365D", borderRadius: 8, fontWeight: 600 }}
                           >
                             Issue New Credential
@@ -1256,12 +1634,46 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
           width={650}
           destroyOnHidden
         >
+          {credDefs.length === 0 && (
+            <Alert
+              type="warning"
+              showIcon
+              message="No Credential Definitions Registered"
+              description={
+                <span>
+                  Before issuing credentials, you must publish a Credential Definition for a Schema. Please visit the{" "}
+                  <a
+                    onClick={() => {
+                      setIsIssueModalOpen(false);
+                      setActiveTab("schemas");
+                    }}
+                    style={{ fontWeight: 600, textDecoration: "underline" }}
+                  >
+                    Schemas & Templates tab
+                  </a>{" "}
+                  and click <strong>Publish Cred Def</strong>.
+                </span>
+              }
+              style={{ marginBottom: 16 }}
+            />
+          )}
+
+          {connections.length === 0 && (
+            <Alert
+              type="info"
+              showIcon
+              message="No Active Peer Connections"
+              description="You need at least one connected Holder wallet to issue a credential. Please use the Connections tab or QR code to connect with a Holder."
+              style={{ marginBottom: 16 }}
+            />
+          )}
+
           <Form
             form={issueForm}
             layout="vertical"
             onFinish={handleIssueCredential}
             initialValues={{
-              credentialDefinitionId: credDefs[0]?.id || "",
+              credentialDefinitionId: selectedCredDefForIssue?.id || credDefs[0]?.id || "",
               holderDid: connections[0]?.connection_id || connections[0]?.their_did || "",
             }}
             style={{ marginTop: 16 }}
@@ -1272,11 +1684,19 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
               rules={[{ required: true, message: "Please select a credential template" }]}
             >
               <Select onChange={handleCredDefChange} placeholder="Select Credential Template">
-                {credDefs.map((def) => (
-                  <Option key={def.id} value={def.id}>
-                    {def.schemaName} ({def.tag || "default"})
-                  </Option>
-                ))}
+                {credDefs.map((def) => {
+                  const sName =
+                    def.schemaName && def.schemaName !== def.tag && def.schemaName !== "Credential Template"
+                      ? def.schemaName
+                      : "";
+                  const tag = def.tag || "default";
+                  const label = sName ? `${sName} (${tag})` : (tag || def.id);
+                  return (
+                    <Option key={def.id} value={def.id}>
+                      {label}
+                    </Option>
+                  );
+                })}
               </Select>
             </Form.Item>
 
@@ -1296,27 +1716,49 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
 
             <div style={{ marginTop: 16, marginBottom: 8 }}>
               <strong style={{ fontSize: 13, color: "var(--text-primary)" }}>
-                Schema Attributes for '{activeCredDefSchema?.name || "Selected Schema"}':
+                Schema Attributes for '{activeCredDefSchema?.name || selectedCredDefForIssue?.schemaName || "Selected Schema"}':
               </strong>
             </div>
 
             <div style={{ background: "rgba(0,0,0,0.02)", padding: 12, borderRadius: 8, marginBottom: 16 }}>
-              {currentAttributesForIssue.map((attr) => (
-                <Form.Item
-                  key={attr}
-                  name={attr}
-                  label={attr.charAt(0).toUpperCase() + attr.slice(1)}
-                  rules={[{ required: true, message: `Please enter ${attr}` }]}
-                  style={{ marginBottom: 10 }}
-                >
-                  <Input placeholder={`Enter value for ${attr}`} />
-                </Form.Item>
-              ))}
+              {loadingIssueAttributes ? (
+                <div style={{ textAlign: "center", padding: "16px 8px" }}>
+                  <Spin indicator={<SyncOutlined spin style={{ fontSize: 20, color: "#2563eb" }} />} />
+                  <div style={{ marginTop: 8, fontSize: 13, color: "#64748b" }}>
+                    Fetching claim attributes from ledger definition...
+                  </div>
+                </div>
+              ) : currentAttributesForIssue.length === 0 ? (
+                <div style={{ color: "#64748b", fontSize: 13, padding: 8 }}>
+                  No claim attributes found for this template on ledger. Please select a template with registered claims.
+                </div>
+              ) : (
+                currentAttributesForIssue.map((attr) => (
+                  <Form.Item
+                    key={attr}
+                    name={attr}
+                    label={attr.charAt(0).toUpperCase() + attr.slice(1)}
+                    rules={[{ required: true, message: `Please enter ${attr}` }]}
+                    style={{ marginBottom: 10 }}
+                  >
+                    <Input placeholder={`Enter value for ${attr}`} />
+                  </Form.Item>
+                ))
+              )}
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
               <Button onClick={() => setIsIssueModalOpen(false)}>Cancel</Button>
-              <Button type="primary" htmlType="submit">
+              <Button
+                type="primary"
+                htmlType="submit"
+                disabled={
+                  credDefs.length === 0 ||
+                  connections.length === 0 ||
+                  loadingIssueAttributes ||
+                  currentAttributesForIssue.length === 0
+                }
+              >
                 Sign & Issue Credential
               </Button>
             </div>
@@ -1365,7 +1807,7 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
             ]}
           />
 
-          {schemaCreationStep === 0 ? (
+          <div style={{ display: schemaCreationStep === 0 ? "block" : "none" }}>
             <Form form={schemaForm} layout="vertical" onFinish={handleProceedToPreview} style={{ marginTop: 12 }}>
               <div style={{ marginBottom: 16, background: "#f8fafc", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 6 }}>
@@ -1390,7 +1832,7 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
                   label="Schema Name"
                   rules={[{ required: true, message: "Please input schema name" }]}
                 >
-                  <Input placeholder="e.g. Employee ID, Degree Certificate" />
+                  <Input placeholder="e.g. Employee ID, Degree Certificate, Testing_Schema" />
                 </Form.Item>
 
                 <Form.Item
@@ -1400,6 +1842,26 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
                   rules={[{ required: true, message: "Please enter version" }]}
                 >
                   <Input placeholder="1.0" />
+                </Form.Item>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12, marginBottom: 8 }}>
+                <Form.Item
+                  name="tag"
+                  label="Credential Definition Tag"
+                  initialValue="default"
+                  rules={[{ required: true, message: "Please enter credential definition tag" }]}
+                >
+                  <Input placeholder="e.g. default, test_subject" />
+                </Form.Item>
+
+                <Form.Item
+                  name="supportRevocation"
+                  label="Revocation Support"
+                  valuePropName="checked"
+                  initialValue={true}
+                >
+                  <Switch checkedChildren="Enabled" unCheckedChildren="Disabled" defaultChecked />
                 </Form.Item>
               </div>
 
@@ -1463,7 +1925,9 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
                 </Button>
               </div>
             </Form>
-          ) : (
+          </div>
+
+          <div style={{ display: schemaCreationStep === 1 ? "block" : "none" }}>
             <div style={{ marginTop: 12 }}>
               {/* SECTION 1: BASIC INFORMATION PREVIEW */}
               <div className="schema-section-card">
@@ -1490,6 +1954,24 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
                       <span className="schema-info-value">
                         <Tag color="blue" style={{ borderRadius: 6, fontWeight: 600, fontSize: 12 }}>
                           v{schemaPreviewData?.version}
+                        </Tag>
+                      </span>
+                    </div>
+
+                    <div className="schema-info-item">
+                      <span className="schema-info-label">Cred Def Tag</span>
+                      <span className="schema-info-value">
+                        <Tag color="purple" style={{ borderRadius: 6, fontWeight: 600, fontSize: 12 }}>
+                          {schemaPreviewData?.tag || "default"}
+                        </Tag>
+                      </span>
+                    </div>
+
+                    <div className="schema-info-item">
+                      <span className="schema-info-label">Revocation Support</span>
+                      <span className="schema-info-value">
+                        <Tag color={schemaPreviewData?.supportRevocation !== false ? "green" : "orange"} style={{ borderRadius: 6, fontWeight: 600, fontSize: 12 }}>
+                          {schemaPreviewData?.supportRevocation !== false ? "Enabled (Accumulator)" : "Disabled"}
                         </Tag>
                       </span>
                     </div>
@@ -1574,7 +2056,7 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
                 </Space>
               </div>
             </div>
-          )}
+          </div>
           </div>
         </Modal>
 
@@ -1677,6 +2159,19 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
           visible={!!selectedSchemaForView}
           onClose={() => setSelectedSchemaForView(null)}
           schema={selectedSchemaForView}
+          credDef={
+            credDefs.find(
+              (cd) =>
+                cd.schemaId === selectedSchemaForView?.id ||
+                cd.schema_id === selectedSchemaForView?.id ||
+                (selectedSchemaForView?.seqNo && String(cd.seqNo) === String(selectedSchemaForView.seqNo)) ||
+                (cd.id && selectedSchemaForView?.seqNo && cd.id.includes(`:${selectedSchemaForView.seqNo}:`)) ||
+                (selectedSchemaForView?.name &&
+                  cd.schemaName &&
+                  cd.schemaName.toLowerCase() === selectedSchemaForView.name.toLowerCase())
+            ) || null
+          }
+          credDefs={credDefs}
         />
 
         {/* View Credential Modal */}
