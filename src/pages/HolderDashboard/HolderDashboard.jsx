@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Table,
@@ -37,7 +37,7 @@ import DashboardLayout from "../../layouts/DashboardLayout/DashboardLayout";
 import StatCard from "../../components/cards/StatCard/StatCard";
 import ConnectionModal from "../../components/modals/ConnectionModal/ConnectionModal";
 import CredentialDetailsModal from "../../components/modals/CredentialDetailsModal/CredentialDetailsModal";
-import { holderService } from "../../services/apiClient";
+import { holderService, deduplicateCredentials } from "../../services/apiClient";
 import "./HolderDashboard.css";
 
 const { Option } = Select;
@@ -85,7 +85,10 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
         holderService.getDID ? holderService.getDID() : Promise.resolve({ did: null }),
       ]);
 
-      if (credRes?.success) setCredentials(Array.isArray(credRes.data) ? credRes.data : []);
+      if (credRes?.success) {
+        const rawCreds = Array.isArray(credRes.data) ? credRes.data : [];
+        setCredentials(deduplicateCredentials(rawCreds));
+      }
       if (connRes?.success) setConnections(Array.isArray(connRes.data) ? connRes.data : []);
       if (offerRes?.success) setOffers(Array.isArray(offerRes.data) ? offerRes.data : []);
       if (proofRes?.success) setProofRequests(Array.isArray(proofRes.data) ? proofRes.data : []);
@@ -135,15 +138,20 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
   const handleAcceptOffer = async (offerId) => {
     try {
       const res = await holderService.acceptOffer(offerId);
-      if (res?.success) {
-        message.success("Credential offer accepted and added to your wallet!");
+      if (res?.success || res?.state || res?.data || res?.cred_ex_id) {
+        message.success("Credential offer accepted! Storing into wallet enclave...");
         if (selectedOfferForReview?.id === offerId) {
           setSelectedOfferForReview(null);
         }
-        loadData();
+        // Give ACA-Py 1.5s to complete protocol handshake and reload
+        setTimeout(async () => {
+          await loadData();
+        }, 1500);
+      } else {
+        message.error(res?.message || "Failed to accept offer");
       }
-    } catch {
-      message.error("Failed to accept offer");
+    } catch (err) {
+      message.error(err?.message || "Failed to accept offer");
     }
   };
 
@@ -234,11 +242,14 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
     }
   };
 
-  const filteredCredentials = credentials.filter(
-    (c) =>
-      (c.credentialDefinition || c.type || "").toLowerCase().includes(filterQuery.toLowerCase()) ||
-      (c.issuerName || c.issuer || "").toLowerCase().includes(filterQuery.toLowerCase())
-  );
+  const filteredCredentials = useMemo(() => {
+    const deduped = deduplicateCredentials(credentials);
+    return deduped.filter(
+      (c) =>
+        (c.credentialDefinition || c.type || "").toLowerCase().includes(filterQuery.toLowerCase()) ||
+        (c.issuerName || c.issuer || "").toLowerCase().includes(filterQuery.toLowerCase())
+    );
+  }, [credentials, filterQuery]);
 
   const handleCopyDID = () => {
     navigator.clipboard?.writeText(holderDid);
@@ -277,26 +288,42 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
       dataIndex: "credentialDefinition",
       key: "credentialDefinition",
       width: 220,
-      render: (d) => <strong style={{ color: "var(--text-primary)" }}>{d}</strong>,
+      render: (d, r) => (
+        <strong style={{ color: "var(--text-primary)" }}>
+          {d || r.schemaName || r.schema_name || r.comment || "Verifiable Credential"}
+        </strong>
+      ),
     },
     {
       title: "Issuer Authority",
       dataIndex: "senderName",
       key: "senderName",
       width: 210,
-      render: (n) => <span>{n}</span>,
+      render: (n, r) => {
+        const matchingConn = connections.find((c) => c.connection_id === r.connection_id || c.id === r.connection_id);
+        const name = n || r.issuerName || matchingConn?.their_label || matchingConn?.alias || "Authorized Issuer";
+        return <span>{name}</span>;
+      },
     },
     {
       title: "Offered Claims",
       dataIndex: "attributes",
       key: "attributes",
       width: 220,
-      render: (attrs) => {
-        const count = Object.keys(attrs || {}).length;
-        const keys = Object.keys(attrs || {}).slice(0, 2).join(", ");
+      render: (attrs, r) => {
+        const claims = attrs || r.raw_attributes || r.claims || r.raw?.cred_offer?.credential_preview?.attributes || {};
+        let count = 0;
+        let keys = "";
+        if (Array.isArray(claims)) {
+          count = claims.length;
+          keys = claims.map((c) => (typeof c === "object" ? c.name || c.key : c)).filter(Boolean).slice(0, 2).join(", ");
+        } else if (claims && typeof claims === "object") {
+          count = Object.keys(claims).length;
+          keys = Object.keys(claims).slice(0, 2).join(", ");
+        }
         return (
           <span style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>
-            <strong>{count} claims</strong> ({keys}...)
+            <strong>{count} claims</strong> {keys ? `(${keys}...)` : ""}
           </span>
         );
       },
@@ -313,38 +340,44 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
       key: "actions",
       width: 280,
       align: "right",
-      render: (_, record) => (
-        <Space size="small" style={{ whiteSpace: "nowrap" }}>
-          <Button
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => setSelectedOfferForReview(record)}
-          >
-            Review Offer
-          </Button>
-          <Button
-            type="primary"
-            size="small"
-            icon={<CheckCircleOutlined />}
-            onClick={() => handleAcceptOffer(record.id)}
-            style={{ background: "#2563EB", borderColor: "#2563EB" }}
-          >
-            Accept
-          </Button>
-          <Popconfirm
-            title="Decline this credential offer?"
-            description="The issuer will be notified that you declined this offer."
-            onConfirm={() => handleDeclineOffer(record.id)}
-            okText="Decline"
-            cancelText="Cancel"
-            okButtonProps={{ danger: true }}
-          >
-            <Button size="small" danger>
-              Decline
+      render: (_, record) => {
+        const isReadyToStore =
+          record.state === "credential-received" ||
+          record.state === "credential_received";
+
+        return (
+          <Space size="small" style={{ whiteSpace: "nowrap" }}>
+            <Button
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => setSelectedOfferForReview(record)}
+            >
+              Review Offer
             </Button>
-          </Popconfirm>
-        </Space>
-      ),
+            <Button
+              type="primary"
+              size="small"
+              icon={<CheckCircleOutlined />}
+              onClick={() => handleAcceptOffer(record.id)}
+              style={{ background: "#2563EB", borderColor: "#2563EB" }}
+            >
+              {isReadyToStore ? "Store Credential" : "Accept"}
+            </Button>
+            <Popconfirm
+              title="Decline this credential offer?"
+              description="The issuer will be notified that you declined this offer."
+              onConfirm={() => handleDeclineOffer(record.id)}
+              okText="Decline"
+              cancelText="Cancel"
+              okButtonProps={{ danger: true }}
+            >
+              <Button size="small" danger>
+                Decline
+              </Button>
+            </Popconfirm>
+          </Space>
+        );
+      },
     },
   ];
 
@@ -970,80 +1003,127 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
           width={680}
           destroyOnHidden
         >
-          {selectedOfferForReview && (
-            <div className="offer-review-modal-body">
-              <div className="offer-summary-box">
-                <div className="offer-summary-row">
-                  <span className="summary-label">Credential Name</span>
-                  <strong className="summary-val">{selectedOfferForReview.credentialDefinition}</strong>
-                </div>
-                <div className="offer-summary-row">
-                  <span className="summary-label">Issuer Authority</span>
-                  <span className="summary-val">{selectedOfferForReview.senderName}</span>
-                </div>
-                <div className="offer-summary-row">
-                  <span className="summary-label">Issuer DID</span>
-                  <code className="summary-val mono-code">{selectedOfferForReview.senderDid}</code>
-                </div>
-                {selectedOfferForReview.comment && (
+          {selectedOfferForReview && (() => {
+            const matchingConn = connections.find(
+              (c) =>
+                c.connection_id === selectedOfferForReview.connection_id ||
+                c.id === selectedOfferForReview.connection_id
+            );
+
+            const claimsObj =
+              selectedOfferForReview.attributes ||
+              selectedOfferForReview.raw_attributes ||
+              selectedOfferForReview.claims ||
+              selectedOfferForReview.raw?.cred_offer?.credential_preview?.attributes ||
+              selectedOfferForReview.raw?.cred_preview?.attributes ||
+              {};
+            let claimEntries = [];
+            if (Array.isArray(claimsObj)) {
+              claimEntries = claimsObj.map((item, idx) => {
+                if (item && typeof item === "object") {
+                  return [item.name || item.name_tag || item.key || `attr_${idx}`, item.value ?? ""];
+                }
+                return [String(idx), String(item)];
+              });
+            } else if (claimsObj && typeof claimsObj === "object") {
+              claimEntries = Object.entries(claimsObj);
+            }
+
+            const credName =
+              selectedOfferForReview.credentialDefinition ||
+              selectedOfferForReview.schemaName ||
+              selectedOfferForReview.schema_name ||
+              selectedOfferForReview.comment ||
+              "Verifiable Credential";
+
+            const issuerAuthority =
+              selectedOfferForReview.senderName ||
+              selectedOfferForReview.issuerName ||
+              matchingConn?.their_label ||
+              matchingConn?.alias ||
+              "Authorized Issuer";
+
+            const issuerDid =
+              selectedOfferForReview.senderDid ||
+              selectedOfferForReview.issuerDid ||
+              matchingConn?.their_did ||
+              "did:sov:issuer";
+
+            return (
+              <div className="offer-review-modal-body">
+                <div className="offer-summary-box">
                   <div className="offer-summary-row">
-                    <span className="summary-label">Issuer Note</span>
-                    <span className="summary-val">{selectedOfferForReview.comment}</span>
+                    <span className="summary-label">Credential Name</span>
+                    <strong className="summary-val">{credName}</strong>
                   </div>
-                )}
-              </div>
+                  <div className="offer-summary-row">
+                    <span className="summary-label">Issuer Authority</span>
+                    <span className="summary-val">{issuerAuthority}</span>
+                  </div>
+                  <div className="offer-summary-row">
+                    <span className="summary-label">Issuer DID</span>
+                    <code className="summary-val mono-code">{issuerDid}</code>
+                  </div>
+                  {selectedOfferForReview.comment && (
+                    <div className="offer-summary-row">
+                      <span className="summary-label">Issuer Note</span>
+                      <span className="summary-val">{selectedOfferForReview.comment}</span>
+                    </div>
+                  )}
+                </div>
 
-              <div style={{ marginTop: 20 }}>
-                <h4 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: "var(--text-primary)" }}>
-                  Offered Claims ({Object.keys(selectedOfferForReview.attributes || {}).length})
-                </h4>
-                <p style={{ fontSize: 12.5, color: "var(--text-secondary)", marginBottom: 12 }}>
-                  The issuer has certified the following claims for this credential. Inspect them before accepting into your wallet:
-                </p>
+                <div style={{ marginTop: 20 }}>
+                  <h4 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: "var(--text-primary)" }}>
+                    Offered Claims ({claimEntries.length})
+                  </h4>
+                  <p style={{ fontSize: 12.5, color: "var(--text-secondary)", marginBottom: 12 }}>
+                    The issuer has certified the following claims for this credential. Inspect them before accepting into your wallet:
+                  </p>
 
-                <div className="claims-table-wrapper">
-                  <table className="claims-review-table">
-                    <thead>
-                      <tr>
-                        <th>Claim / Attribute</th>
-                        <th>Certified Value</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Object.entries(selectedOfferForReview.attributes || {}).map(([key, val]) => (
-                        <tr key={key}>
-                          <td className="claim-key">{key}</td>
-                          <td className="claim-val">{String(val)}</td>
+                  <div className="claims-table-wrapper">
+                    <table className="claims-review-table">
+                      <thead>
+                        <tr>
+                          <th>Claim / Attribute</th>
+                          <th>Certified Value</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {claimEntries.map(([key, val]) => (
+                          <tr key={key}>
+                            <td className="claim-key">{key}</td>
+                            <td className="claim-val">{String(val)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24 }}>
+                  <Button onClick={() => setSelectedOfferForReview(null)}>Close</Button>
+                  <Popconfirm
+                    title="Decline this credential offer?"
+                    description="The issuer will be notified that you declined this offer."
+                    onConfirm={() => handleDeclineOffer(selectedOfferForReview.id)}
+                    okText="Decline"
+                    cancelText="Cancel"
+                    okButtonProps={{ danger: true }}
+                  >
+                    <Button danger>Decline Offer</Button>
+                  </Popconfirm>
+                  <Button
+                    type="primary"
+                    icon={<CheckCircleOutlined />}
+                    onClick={() => handleAcceptOffer(selectedOfferForReview.id)}
+                    style={{ background: "#2563EB", borderColor: "#2563EB" }}
+                  >
+                    Accept into Wallet
+                  </Button>
                 </div>
               </div>
-
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24 }}>
-                <Button onClick={() => setSelectedOfferForReview(null)}>Close</Button>
-                <Popconfirm
-                  title="Decline this credential offer?"
-                  description="The issuer will be notified that you declined this offer."
-                  onConfirm={() => handleDeclineOffer(selectedOfferForReview.id)}
-                  okText="Decline"
-                  cancelText="Cancel"
-                  okButtonProps={{ danger: true }}
-                >
-                  <Button danger>Decline Offer</Button>
-                </Popconfirm>
-                <Button
-                  type="primary"
-                  icon={<CheckCircleOutlined />}
-                  onClick={() => handleAcceptOffer(selectedOfferForReview.id)}
-                  style={{ background: "#2563EB", borderColor: "#2563EB" }}
-                >
-                  Accept into Wallet
-                </Button>
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </Modal>
 
         {/* ========================================================= */}

@@ -35,8 +35,22 @@ export const holderApi = {
 
   // 2. Credential Offers & Storage (Aries Issue-Credential 2.0)
   async getOffers() {
-    const res = await apiClient.get(ENDPOINTS.HOLDER.OFFERS);
-    return res.data;
+    try {
+      const res = await apiClient.get(ENDPOINTS.HOLDER.OFFERS);
+      const data = res?.data?.cred_ex_record || res?.data?.results || res?.data || res?.results || res;
+      if (data && (Array.isArray(data) || typeof data === "object")) {
+        return res.data;
+      }
+    } catch (err) {
+      console.warn("GET /holder/credentials/offers error, trying fallback:", err?.message || err);
+    }
+
+    try {
+      const fallback = await apiClient.get(ENDPOINTS.HOLDER.CREDENTIAL_REQUESTS);
+      return fallback.data;
+    } catch {
+      return { success: true, data: [] };
+    }
   },
 
   async acceptOffer(credExId) {

@@ -12,12 +12,58 @@ export default function CredentialDetailsModal({ visible, onClose, credential })
   const rawJson = JSON.stringify(credential, null, 2);
   const isRevoked = credential.revocationStatus === "revoked" || credential.status === "revoked";
 
-  const claims = credential.attributes || credential.claims || {};
-  const claimsArray = Object.entries(claims).map(([key, value]) => ({
-    key,
-    attribute: key,
-    value: String(value),
-  }));
+  const claims =
+    credential.attributes ||
+    credential.attrs ||
+    credential.claims ||
+    credential.raw_attributes ||
+    credential.raw?.cred_preview?.attributes ||
+    credential.raw?.cred_offer?.credential_preview?.attributes ||
+    credential.raw?.cred_proposal?.credential_preview?.attributes ||
+    credential.raw?.by_format?.cred_offer?.anoncreds?.attributes ||
+    credential.raw?.by_format?.cred_issue?.anoncreds?.attributes ||
+    credential.raw?.attributes ||
+    credential.raw?.attrs ||
+    {};
+  let claimsArray = [];
+  if (Array.isArray(claims)) {
+    claimsArray = claims.map((item, idx) => {
+      if (item && typeof item === "object") {
+        const key = item.name || item.name_tag || item.key || `attr_${idx}`;
+        const val = item.value !== undefined ? String(item.value) : "";
+        return { key, attribute: key, value: val };
+      }
+      return { key: String(idx), attribute: String(idx), value: String(item) };
+    });
+  } else if (claims && typeof claims === "object") {
+    claimsArray = Object.entries(claims).map(([key, value]) => ({
+      key,
+      attribute: key,
+      value: String(value ?? ""),
+    }));
+  }
+
+  const credDefId =
+    (credential.credentialDefinitionId && credential.credentialDefinitionId !== "N/A" ? credential.credentialDefinitionId : null) ||
+    credential.cred_def_id ||
+    credential.credDefId ||
+    credential.raw?.by_format?.cred_offer?.anoncreds?.cred_def_id ||
+    credential.raw?.by_format?.cred_offer?.indy?.cred_def_id ||
+    credential.raw?.by_format?.cred_issue?.anoncreds?.cred_def_id ||
+    credential.raw?.by_format?.cred_issue?.indy?.cred_def_id ||
+    credential.raw?.cred_def_id ||
+    credential.raw?.credential_definition_id ||
+    "N/A";
+
+  const issueDateRaw =
+    credential.issuedAt ||
+    credential.created_at ||
+    credential.issuanceDate ||
+    credential.issue_date ||
+    credential.raw?.created_at ||
+    credential.raw?.updated_at;
+
+  const displayDate = issueDateRaw ? new Date(issueDateRaw).toLocaleString() : "N/A";
 
   const columns = [
     {
@@ -55,10 +101,10 @@ export default function CredentialDetailsModal({ visible, onClose, credential })
       <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <Text strong style={{ fontSize: 16, display: "block" }}>
-            {credential.schema || credential.type || "Verifiable Credential"}
+            {credential.credentialDefinition || credential.schema || credential.type || credential.schemaName || "Verifiable Credential"}
           </Text>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            Issued by {credential.issuer || credential.issuerDid || "Trusted Authority"}
+            Issued by {credential.issuer || credential.issuerName || credential.issuerDid || "Trusted Authority"}
           </Text>
         </div>
         <Space>
@@ -99,17 +145,17 @@ export default function CredentialDetailsModal({ visible, onClose, credential })
           <Descriptions bordered column={1} size="small" style={{ borderRadius: 8 }}>
             <Descriptions.Item label="Credential ID">
               <Text code copyable style={{ fontSize: 12 }}>
-                {credential.id || credential.credential_id || "N/A"}
+                {credential.id || credential.credential_id || credential.referent || "N/A"}
               </Text>
             </Descriptions.Item>
             <Descriptions.Item label="Credential Definition ID">
               <Text code copyable style={{ fontSize: 12 }}>
-                {credential.credentialDefinitionId || credential.cred_def_id || "N/A"}
+                {credDefId}
               </Text>
             </Descriptions.Item>
             <Descriptions.Item label="Issuance Date">
               <Text type="secondary">
-                {credential.issuedAt || credential.created_at ? new Date(credential.issuedAt || credential.created_at).toLocaleString() : "N/A"}
+                {displayDate}
               </Text>
             </Descriptions.Item>
             {credential.revocationReason && (
