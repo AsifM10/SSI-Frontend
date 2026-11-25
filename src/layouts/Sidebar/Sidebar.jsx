@@ -101,14 +101,18 @@ const Sidebar = ({ collapsed, role }) => {
   }
 
   // Shared Communication & Ecosystem Navigation
+  const ecosystemItems = [
+    { key: "messages", path: "/messages", icon: MessageOutlined, label: "Messages" },
+    ...(isHolder || isVerifier
+      ? [{ key: "directory", path: "/directory", icon: CompassOutlined, label: "Issuer Directory" }]
+      : []),
+    { key: "notifications", path: "/notifications", icon: BellOutlined, label: "Notifications" },
+    { key: "profile", path: "/profile", icon: UserOutlined, label: "My Profile" },
+  ];
+
   navigationSections.push({
     title: "Ecosystem & Comms",
-    items: [
-      { key: "messages", path: "/messages", icon: MessageOutlined, label: "Messages" },
-      { key: "directory", path: "/directory", icon: CompassOutlined, label: "Issuer Directory" },
-      { key: "notifications", path: "/notifications", icon: BellOutlined, label: "Notifications" },
-      { key: "profile", path: "/profile", icon: UserOutlined, label: "My Profile" },
-    ],
+    items: ecosystemItems,
   });
 
   return (

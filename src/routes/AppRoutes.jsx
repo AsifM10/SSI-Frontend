@@ -72,7 +72,7 @@ export default function AppRoutes() {
         <Route
           path="/directory"
           element={
-            <RoleGuard allowedRoles={ALL_ROLES}>
+            <RoleGuard allowedRoles={["holder", "verifier"]}>
               <DirectoryPage />
             </RoleGuard>
           }

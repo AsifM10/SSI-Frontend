@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Card, Input, Button, Tag, Avatar, Space, message, Modal, List, Spin } from "antd";
+import { Card, Input, Button, Tag, Avatar, message, Modal, List, Spin, Empty } from "antd";
 import {
   BankOutlined,
   SearchOutlined,
@@ -7,12 +7,18 @@ import {
   FileTextOutlined,
   CheckCircleOutlined,
   SyncOutlined,
+  WalletOutlined,
+  SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import DashboardLayout from "../../layouts/DashboardLayout/DashboardLayout";
+import { useAuth } from "../../context/AuthContext";
 import { directoryApi } from "../../services/api/index.js";
 import "./DirectoryPage.css";
 
 export const DirectoryPage = () => {
+  const { user } = useAuth();
+  const isVerifier = user?.role === "verifier";
+
   const [issuers, setIssuers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -112,29 +118,52 @@ export const DirectoryPage = () => {
     <DashboardLayout>
       <div className="directory-page-container">
         <div className="directory-header">
-          <h2>Accredited Issuer Directory</h2>
-          <p>
-            Browse trusted credential issuers across government, education, and enterprise ecosystems.
-            Connect directly to request verified digital credentials.
-          </p>
-          <Space>
+          <div className="directory-header-meta">
+            <div className="directory-header-title-row">
+              <h2>Accredited Issuer Directory</h2>
+              <Tag color={isVerifier ? "cyan" : "blue"} className="directory-role-badge">
+                {isVerifier ? "Verifier Authority Portal" : "Digital Wallet Holder Portal"}
+              </Tag>
+            </div>
+            <p className="directory-header-description">
+              {isVerifier
+                ? "Discover accredited authorities, inspect verifiable credential schemas, and establish trust connections for claim verification."
+                : "Browse accredited credential issuers across government, education, and enterprise ecosystems. Connect your digital wallet directly to apply for and receive verified credentials."}
+            </p>
+          </div>
+
+          <div className="directory-controls">
             <Input
               className="directory-search-bar"
-              prefix={<SearchOutlined />}
+              prefix={<SearchOutlined style={{ color: "#94a3b8" }} />}
               placeholder="Search by issuer name, schema, or DID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               allowClear
             />
-            <Button icon={<SyncOutlined />} onClick={fetchIssuers}>
+            <Button
+              icon={<SyncOutlined />}
+              onClick={fetchIssuers}
+              className="directory-refresh-btn"
+            >
               Refresh
             </Button>
-          </Space>
+          </div>
         </div>
 
         {loading ? (
-          <div style={{ textAlign: "center", padding: "60px 0" }}>
+          <div className="directory-loading-wrapper">
             <Spin size="large" />
+          </div>
+        ) : filteredIssuers.length === 0 ? (
+          <div className="directory-empty-wrapper">
+            <Empty
+              description={
+                searchTerm
+                  ? `No accredited issuers found matching "${searchTerm}"`
+                  : "No accredited issuers registered yet in the directory."
+              }
+            />
           </div>
         ) : (
           <div className="directory-cards-grid">
@@ -148,47 +177,56 @@ export const DirectoryPage = () => {
                     type="link"
                     icon={<FileTextOutlined />}
                     onClick={() => handleViewSchemas(issuer)}
+                    className="directory-action-btn"
                   >
-                    Schemas ({(issuer.schemas || []).length})
+                    {isVerifier
+                      ? `Inspect Schemas (${(issuer.schemas || []).length})`
+                      : `Apply / View Schemas (${(issuer.schemas || []).length})`}
                   </Button>,
                   <Button
                     key="connect"
                     type="primary"
-                    icon={<LinkOutlined />}
+                    icon={isVerifier ? <SafetyCertificateOutlined /> : <WalletOutlined />}
                     loading={connectingId === issuer.id}
                     onClick={() => handleConnect(issuer)}
+                    className="directory-action-btn directory-action-primary"
                   >
-                    Connect
+                    {isVerifier ? "Establish Trust Connection" : "Connect Wallet"}
                   </Button>,
                 ]}
               >
                 <div className="directory-card-header">
                   <Avatar
-                    size={48}
+                    size={46}
                     icon={<BankOutlined />}
-                    style={{ backgroundColor: "#2563eb" }}
+                    className="directory-card-avatar"
                   />
-                  <div>
+                  <div className="directory-card-info">
                     <div className="directory-card-title">
                       {issuer.name || issuer.organization || "Accredited Issuer"}
                     </div>
-                    {issuer.isAccredited && (
-                      <Tag color="success" icon={<CheckCircleOutlined />}>
-                        Accredited
-                      </Tag>
-                    )}
+                    <div className="directory-card-badges">
+                      {issuer.isAccredited && (
+                        <Tag color="success" icon={<CheckCircleOutlined />}>
+                          Accredited
+                        </Tag>
+                      )}
+                      {issuer.organization && issuer.name && (
+                        <span className="directory-card-org">{issuer.organization}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <div className="directory-card-did">
-                  DID: {issuer.did || "did:indy:sovrin:..."}
+                <div className="directory-card-did" title={issuer.did || ""}>
+                  <span className="did-label">DID:</span> {issuer.did || "did:indy:sovrin:..."}
                 </div>
 
                 <div className="directory-schemas-list">
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>
-                    Available Credential Schemas:
-                  </span>
-                  <div style={{ marginTop: 6 }}>
+                  <div className="directory-schemas-heading">
+                    Offered Credential Schemas:
+                  </div>
+                  <div className="directory-schemas-tags">
                     {(issuer.schemas || []).map((schema, idx) => (
                       <Tag key={idx} color="blue" className="directory-schema-item">
                         {typeof schema === "string" ? schema.split(":")[0] : schema.name || "Schema"}
@@ -203,9 +241,11 @@ export const DirectoryPage = () => {
 
         {/* Schemas Detail Modal */}
         <Modal
-          title={`Schemas offered by ${selectedIssuer?.name || "Issuer"}`}
+          title={`Credential Schemas: ${selectedIssuer?.name || "Issuer"}`}
           open={schemasModalVisible}
           onCancel={() => setSchemasModalVisible(false)}
+          width={640}
+          style={{ maxWidth: "95vw" }}
           footer={[
             <Button key="close" onClick={() => setSchemasModalVisible(false)}>
               Close
@@ -213,18 +253,18 @@ export const DirectoryPage = () => {
             <Button
               key="connectModal"
               type="primary"
-              icon={<LinkOutlined />}
+              icon={isVerifier ? <SafetyCertificateOutlined /> : <LinkOutlined />}
               onClick={() => {
                 setSchemasModalVisible(false);
                 if (selectedIssuer) handleConnect(selectedIssuer);
               }}
             >
-              Connect to Issuer
+              {isVerifier ? "Establish Trust Connection" : "Connect Wallet"}
             </Button>,
           ]}
         >
           {loadingSchemas ? (
-            <div style={{ textAlign: "center", padding: 20 }}>
+            <div style={{ textAlign: "center", padding: 30 }}>
               <Spin />
             </div>
           ) : (
@@ -237,8 +277,8 @@ export const DirectoryPage = () => {
                     title={typeof item === "string" ? item : item.name || item.schema_id}
                     description={
                       typeof item === "object" && item.attributes
-                        ? `Attributes: ${item.attributes.join(", ")}`
-                        : "Ready for digital issuance via Aries RFC 0453"
+                        ? `Disclosable Attributes: ${item.attributes.join(", ")}`
+                        : "Ready for digital issuance & zero-knowledge proofs via Aries RFC 0453"
                     }
                   />
                 </List.Item>
