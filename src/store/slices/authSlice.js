@@ -36,12 +36,13 @@ const getInitialActivePortal = () => {
 // Async thunk: Login
 export const loginUser = createAsyncThunk(
   "auth/loginUser",
-  async ({ username, email, password }, { rejectWithValue }) => {
+  async ({ username, email, password, role }, { rejectWithValue }) => {
     try {
       const loginPayload = {
         email: email || username,
         username: username || email,
         password,
+        ...(role ? { role } : {}),
       };
 
       const result = await authApi.login(loginPayload);
@@ -93,8 +94,9 @@ export const loginUser = createAsyncThunk(
 
       return rejectWithValue(result.message || "Invalid credentials");
     } catch (error) {
+      const serverMessage = error.response?.data?.message;
       return rejectWithValue(
-        error.message || error.details || "Login failed. Please check credentials."
+        serverMessage || error.message || error.details || "Login failed. Please check credentials."
       );
     }
   }
