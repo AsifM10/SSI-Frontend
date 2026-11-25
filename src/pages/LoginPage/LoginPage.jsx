@@ -231,13 +231,13 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
           typeof res?.available === "boolean"
             ? res.available
             : typeof res?.data?.available === "boolean"
-            ? res.data.available
-            : null;
+              ? res.data.available
+              : null;
         const suggestions = Array.isArray(res?.suggestions)
           ? res.suggestions
           : Array.isArray(res?.data?.suggestions)
-          ? res.data.suggestions
-          : [];
+            ? res.data.suggestions
+            : [];
 
         setUsernameStatus({
           checking: false,
@@ -782,7 +782,7 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
 
       setRegSuccess(
         res?.message ||
-          `Registration submitted! Verification code sent to ${registeredEmail}.`
+        `Registration submitted! Verification code sent to ${registeredEmail}.`
       );
       setForm((prev) => ({ ...prev, username: regForm.username.trim() }));
       setIsRegSubmitting(false);
@@ -867,8 +867,8 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
                 {mode === "register" || mode === "verify-otp"
                   ? "Register New Agent"
                   : mode === "forgot-password" || mode === "reset-password"
-                  ? "Reset Agent Password"
-                  : "Select & Authenticate Agent"}
+                    ? "Reset Agent Password"
+                    : "Select & Authenticate Agent"}
               </h2>
               <p>
                 Each portal is cryptographically segregated. Click a node below or choose a tab to authenticate or register.
@@ -917,12 +917,12 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
                     {mode === "register"
                       ? "register:"
                       : mode === "verify-otp"
-                      ? "verify otp:"
-                      : mode === "forgot-password"
-                      ? "forgot password:"
-                      : mode === "reset-password"
-                      ? "reset password:"
-                      : "login:"}
+                        ? "verify otp:"
+                        : mode === "forgot-password"
+                          ? "forgot password:"
+                          : mode === "reset-password"
+                            ? "reset password:"
+                            : "login:"}
                   </h3>
                   <span className="active-role-pill">
                     {currentRoleInfo.icon}
@@ -948,12 +948,12 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
                 {mode === "register"
                   ? `Create a verified ${currentRoleInfo.name} entity on the decentralized trust network.`
                   : mode === "verify-otp"
-                  ? `Enter the 6-digit OTP code sent to your email to activate your account.`
-                  : mode === "forgot-password"
-                  ? `Enter your registered email address to receive a password reset code.`
-                  : mode === "reset-password"
-                  ? `Enter the verification code sent to your email and set your new password.`
-                  : `Enter your credentials to access the ${currentRoleInfo.name} portal.`}
+                    ? `Enter the 6-digit OTP code sent to your email to activate your account.`
+                    : mode === "forgot-password"
+                      ? `Enter your registered email address to receive a password reset code.`
+                      : mode === "reset-password"
+                        ? `Enter the verification code sent to your email and set your new password.`
+                        : `Enter your credentials to access the ${currentRoleInfo.name} portal.`}
               </p>
 
 
@@ -1168,11 +1168,11 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
                     </div>
                   )}
 
-                  <div className="reg-toolbar-row">
+                  {/* <div className="reg-toolbar-row">
                     <span className="reg-hint-tag">
                       <AuditOutlined /> Swagger v1.0 • {currentRoleInfo.name} Spec
                     </span>
-                  </div>
+                  </div> */}
 
                   <form onSubmit={handleRegister} className="folder-form-content">
                     {/* Common: Username & Email in 2 columns */}
@@ -1199,19 +1199,18 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
 
                         {trimmedUsername.length > 0 && (
                           <div
-                            className={`username-status-row ${
-                              isUsernamePending || usernameStatus.checking
-                                ? "checking"
-                                : !isUsernameFormatValid
+                            className={`username-status-row ${isUsernamePending || usernameStatus.checking
+                              ? "checking"
+                              : !isUsernameFormatValid
                                 ? "invalid"
                                 : usernameStatus.available === true
-                                ? "available"
-                                : usernameStatus.available === false
-                                ? "taken"
-                                : usernameStatus.error
-                                ? "error"
-                                : ""
-                            }`}
+                                  ? "available"
+                                  : usernameStatus.available === false
+                                    ? "taken"
+                                    : usernameStatus.error
+                                      ? "error"
+                                      : ""
+                              }`}
                           >
                             {isUsernamePending || usernameStatus.checking ? (
                               <>
@@ -1372,7 +1371,7 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
                         <div className="form-row-2">
                           <div className="form-group-custom">
                             <label htmlFor="reg-first_name">
-                              First Legal Name <span className="req-asterisk">*</span>
+                              First Name <span className="req-asterisk">*</span>
                             </label>
                             <input
                               id="reg-first_name"
@@ -1388,7 +1387,7 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
                           </div>
                           <div className="form-group-custom">
                             <label htmlFor="reg-last_name">
-                              Last Legal Name <span className="req-asterisk">*</span>
+                              Last Name <span className="req-asterisk">*</span>
                             </label>
                             <input
                               id="reg-last_name"
@@ -1406,7 +1405,7 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
 
                         <div className="form-group-custom">
                           <label htmlFor="reg-organizationName">
-                            Legal Entity / Organization Name <span className="req-asterisk">*</span>
+                            Organization Name <span className="req-asterisk">*</span>
                           </label>
                           <div className="input-wrapper-custom">
                             <BankOutlined className="input-icon-custom" />
@@ -1475,7 +1474,7 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
                         <div className="form-row-2">
                           <div className="form-group-custom">
                             <label htmlFor="reg-regionState">
-                              Operating State <span className="req-asterisk">*</span>
+                              State <span className="req-asterisk">*</span>
                             </label>
                             <input
                               id="reg-regionState"
@@ -1490,7 +1489,7 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
                           </div>
                           <div className="form-group-custom">
                             <label htmlFor="reg-regionCity">
-                              Operating City <span className="req-asterisk">*</span>
+                              City <span className="req-asterisk">*</span>
                             </label>
                             <input
                               id="reg-regionCity"
@@ -1514,7 +1513,7 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
                       <>
                         <div className="form-row-2">
                           <div className="form-group-custom">
-                            <label htmlFor="reg-first_name">Legal First Name</label>
+                            <label htmlFor="reg-first_name">First Name</label>
                             <input
                               id="reg-first_name"
                               name="first_name"
@@ -1527,7 +1526,7 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
                             />
                           </div>
                           <div className="form-group-custom">
-                            <label htmlFor="reg-last_name">Legal Last Name</label>
+                            <label htmlFor="reg-last_name">Last Name</label>
                             <input
                               id="reg-last_name"
                               name="last_name"

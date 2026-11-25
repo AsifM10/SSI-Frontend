@@ -1,6 +1,12 @@
 import React, { useState } from "react";
-import { Modal, Descriptions, Tag, Button, Space, Typography, Table, Switch, Card } from "antd";
-import { SafetyCertificateOutlined, CopyOutlined, CloseCircleOutlined, CheckCircleOutlined } from "@ant-design/icons";
+import { Modal, Descriptions, Tag, Button, Space, Typography, Table, Switch, Card, Alert } from "antd";
+import {
+  SafetyCertificateOutlined,
+  CopyOutlined,
+  CloseCircleOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+} from "@ant-design/icons";
 
 const { Text } = Typography;
 
@@ -10,7 +16,50 @@ export default function CredentialDetailsModal({ visible, onClose, credential })
   if (!credential) return null;
 
   const rawJson = JSON.stringify(credential, null, 2);
-  const isRevoked = credential.revocationStatus === "revoked" || credential.status === "revoked";
+
+  const rawState = String(
+    credential.raw?.state ||
+    credential.state ||
+    credential.raw?.display_status ||
+    credential.displayStatus ||
+    credential.status ||
+    ""
+  ).toLowerCase().replace(/_/g, "-");
+
+  const errorMsg =
+    credential.errorMsg ||
+    credential.error_msg ||
+    credential.raw?.error_msg ||
+    credential.raw?.cred_ex_record?.error_msg;
+
+  const isRevoked =
+    credential.revocationStatus === "revoked" ||
+    credential.status === "revoked" ||
+    rawState === "deleted" ||
+    rawState === "revoked";
+
+  const isRejected =
+    credential.status === "rejected" ||
+    credential.status === "abandoned" ||
+    rawState === "abandoned" ||
+    rawState === "rejected" ||
+    rawState === "declined" ||
+    rawState.includes("abandon") ||
+    rawState.includes("reject") ||
+    Boolean(errorMsg);
+
+  const isAccepted =
+    credential.status === "accepted" ||
+    credential.status === "issued" ||
+    [
+      "credential-acked",
+      "credential-issued",
+      "credential-received",
+      "done",
+      "issued",
+      "stored",
+      "accepted",
+    ].includes(rawState);
 
   const claims =
     credential.attributes ||
@@ -84,7 +133,11 @@ export default function CredentialDetailsModal({ visible, onClose, credential })
     <Modal
       title={
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <SafetyCertificateOutlined style={{ color: isRevoked ? "#ef4444" : "#10B981" }} />
+          <SafetyCertificateOutlined
+            style={{
+              color: isRevoked || isRejected ? "#ef4444" : isAccepted ? "#10B981" : "#f59e0b",
+            }}
+          />
           <span>Verifiable Credential Claims & Inspection</span>
         </div>
       }
@@ -108,9 +161,23 @@ export default function CredentialDetailsModal({ visible, onClose, credential })
           </Text>
         </div>
         <Space>
-          <Tag color={isRevoked ? "error" : "success"} icon={isRevoked ? <CloseCircleOutlined /> : <CheckCircleOutlined />}>
-            {isRevoked ? "Revoked" : "Cryptographically Valid"}
-          </Tag>
+          {isRevoked ? (
+            <Tag color="error" icon={<CloseCircleOutlined />}>
+              Revoked
+            </Tag>
+          ) : isRejected ? (
+            <Tag color="error" icon={<CloseCircleOutlined />}>
+              Rejected by Holder
+            </Tag>
+          ) : isAccepted ? (
+            <Tag color="success" icon={<CheckCircleOutlined />}>
+              Accepted by Holder
+            </Tag>
+          ) : (
+            <Tag color="warning" icon={<ClockCircleOutlined />}>
+              Pending Acceptance
+            </Tag>
+          )}
           <Switch
             checkedChildren="JSON"
             unCheckedChildren="Form"
@@ -119,6 +186,20 @@ export default function CredentialDetailsModal({ visible, onClose, credential })
           />
         </Space>
       </div>
+
+      {isRejected && (
+        <Alert
+          type="error"
+          showIcon
+          message="Issuance Rejected by Holder"
+          description={
+            errorMsg
+              ? `Reason: ${errorMsg.replace(/^issuance-abandoned:\s*/i, "")}`
+              : "The holder declined or abandoned this credential offer."
+          }
+          style={{ marginBottom: 16, borderRadius: 8 }}
+        />
+      )}
 
       {showJson ? (
         <Card
@@ -158,6 +239,13 @@ export default function CredentialDetailsModal({ visible, onClose, credential })
                 {displayDate}
               </Text>
             </Descriptions.Item>
+            {errorMsg && (
+              <Descriptions.Item label="Rejection Reason">
+                <Text type="danger" style={{ fontWeight: 500 }}>
+                  {errorMsg.replace(/^issuance-abandoned:\s*/i, "") || errorMsg}
+                </Text>
+              </Descriptions.Item>
+            )}
             {credential.revocationReason && (
               <Descriptions.Item label="Revocation Reason">
                 <Text type="danger">{credential.revocationReason}</Text>

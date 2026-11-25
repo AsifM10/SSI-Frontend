@@ -70,7 +70,10 @@ export default function ViewTemplateModal({ visible, onClose, schema, credDef, c
         cd.schema_id === schemaId ||
         (seqNo && String(cd.seqNo) === String(seqNo)) ||
         (cd.id && seqNo && cd.id.includes(`:${seqNo}:`)) ||
-        (schemaName && cd.schemaName && cd.schemaName.toLowerCase() === schemaName.toLowerCase())
+        (cd.seqNo && schemaId && schemaId.includes(`:${cd.seqNo}:`)) ||
+        (schemaName && cd.schemaName && cd.schemaName.toLowerCase() === schemaName.toLowerCase()) ||
+        (schemaName && cd.tag && (cd.tag.toLowerCase() === schemaName.toLowerCase() || schemaName.toLowerCase().includes(cd.tag.toLowerCase()) || cd.tag.toLowerCase().includes(schemaName.toLowerCase()))) ||
+        (schema?.attributes && cd.attributes && schema.attributes.length > 0 && cd.attributes.length > 0 && schema.attributes.every((a) => cd.attributes.includes(a)))
     );
 
   const effectiveCredDefId =

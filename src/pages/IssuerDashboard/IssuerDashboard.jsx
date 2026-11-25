@@ -143,7 +143,11 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
             s.id === def.schemaId ||
             s.schema_id === def.schemaId ||
             (seqNo && String(s.seqNo) === String(seqNo)) ||
-            (s.seqNo && def.id && def.id.includes(`:${s.seqNo}:`))
+            (s.seqNo && def.id && def.id.includes(`:${s.seqNo}:`)) ||
+            (seqNo && s.id && s.id.includes(`:${seqNo}:`)) ||
+            (s.name && def.schemaName && s.name.trim().toLowerCase() === def.schemaName.trim().toLowerCase()) ||
+            (s.name && def.tag && (s.name.trim().toLowerCase() === def.tag.trim().toLowerCase() || s.name.trim().toLowerCase().includes(def.tag.trim().toLowerCase()) || def.tag.trim().toLowerCase().includes(s.name.trim().toLowerCase()))) ||
+            (s.attributes && def.attributes && s.attributes.length > 0 && def.attributes.length > 0 && (s.attributes.every((a) => def.attributes.includes(a)) || def.attributes.every((a) => s.attributes.includes(a))))
         );
         let finalId = def.id || def.cred_def_id;
         if (!finalId || !finalId.includes(":3:CL:")) {
@@ -158,7 +162,7 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
           seqNo: seqNo || matchingSchema?.seqNo,
           schemaName: matchingSchema?.name || matchingSchema?.schemaName || def.schemaName || def.tag || "Credential Template",
           schemaId: matchingSchema?.id || def.schemaId,
-          attributes: matchingSchema?.attributes || def.attributes || [],
+          attributes: def.attributes && def.attributes.length > 0 ? def.attributes : (matchingSchema?.attributes || []),
         };
       });
 
@@ -170,13 +174,17 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
             d.schema_id === s.id ||
             (s.seqNo && String(d.seqNo) === String(s.seqNo)) ||
             (d.id && s.seqNo && d.id.includes(`:${s.seqNo}:`)) ||
-            (s.name && d.schemaName && d.schemaName.toLowerCase() === s.name.toLowerCase()) ||
-            (d.tag && s.name && s.name.toLowerCase().includes(d.tag.toLowerCase()))
+            (d.seqNo && s.id && s.id.includes(`:${d.seqNo}:`)) ||
+            (s.name && d.schemaName && d.schemaName.trim().toLowerCase() === s.name.trim().toLowerCase()) ||
+            (d.tag && s.name && (d.tag.trim().toLowerCase() === s.name.trim().toLowerCase() || s.name.trim().toLowerCase().includes(d.tag.trim().toLowerCase()) || d.tag.trim().toLowerCase().includes(s.name.trim().toLowerCase()))) ||
+            (s.attributes && d.attributes && s.attributes.length > 0 && d.attributes.length > 0 && (s.attributes.every((a) => d.attributes.includes(a)) || d.attributes.every((a) => s.attributes.includes(a))))
         );
+        const resolvedCredDefId = matchingDef?.id || matchingDef?.cred_def_id || matchingDef?.credentialDefinitionId || null;
         return {
           ...s,
-          credDefId: matchingDef?.id || matchingDef?.cred_def_id || null,
-          cred_def_id: matchingDef?.id || matchingDef?.cred_def_id || null,
+          credDefId: resolvedCredDefId,
+          cred_def_id: resolvedCredDefId,
+          credentialDefinitionId: resolvedCredDefId,
           credDefTag: matchingDef?.tag || null,
         };
       });
@@ -189,8 +197,10 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
             s.schema_id === d.schemaId ||
             (d.seqNo && String(s.seqNo) === String(d.seqNo)) ||
             (s.seqNo && d.id && d.id.includes(`:${s.seqNo}:`)) ||
-            (s.name && d.schemaName && d.schemaName.toLowerCase() === s.name.toLowerCase()) ||
-            (d.tag && s.name && (s.name.toLowerCase().includes(d.tag.toLowerCase()) || d.tag.toLowerCase().includes(s.name.toLowerCase())))
+            (d.seqNo && s.id && s.id.includes(`:${d.seqNo}:`)) ||
+            (s.name && d.schemaName && d.schemaName.trim().toLowerCase() === s.name.trim().toLowerCase()) ||
+            (d.tag && s.name && (s.name.trim().toLowerCase().includes(d.tag.trim().toLowerCase()) || d.tag.trim().toLowerCase().includes(s.name.trim().toLowerCase()))) ||
+            (s.attributes && d.attributes && s.attributes.length > 0 && d.attributes.length > 0 && (s.attributes.every((a) => d.attributes.includes(a)) || d.attributes.every((a) => s.attributes.includes(a))))
         );
         if (matchingSchema) {
           d.schemaName = matchingSchema.name || matchingSchema.schemaName || d.schemaName;
@@ -337,15 +347,54 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
 
       const res = await issuerService.createSchemaAndCredDef(payload);
 
-      if (
-        res?.success ||
+      let credDefId =
         res?.credential_definition_id ||
         res?.data?.credential_definition_id ||
+        res?.cred_def_id ||
+        res?.data?.cred_def_id ||
+        res?.credentialDefinitionId ||
+        res?.data?.credentialDefinitionId;
+
+      const schemaId =
         res?.schema_id ||
         res?.data?.schema_id ||
-        res?.id
+        res?.schemaId ||
+        res?.data?.schemaId ||
+        res?.id ||
+        res?.data?.id;
+
+      // Ensure Credential Definition is guaranteed to be anchored on ledger simultaneously
+      if (!credDefId && schemaId) {
+        try {
+          const cdRes = await issuerService.createCredentialDefinition({
+            schemaId,
+            schemaName: name,
+            schemaVersion: version,
+            attributes: attrs,
+            requiredHolderAttributes: buildRequiredHolderAttributes(attrs),
+            issuanceMode: "AUTO_ISSUE",
+            tag: tag || "default",
+            supportRevocation: supportRevocation,
+            revocationRegistrySize: 1000,
+          });
+          credDefId =
+            cdRes?.credential_definition_id ||
+            cdRes?.data?.credential_definition_id ||
+            cdRes?.cred_def_id ||
+            cdRes?.data?.cred_def_id ||
+            cdRes?.id ||
+            cdRes?.data?.id;
+        } catch (cdErr) {
+          console.warn("Secondary cred def creation fallback:", cdErr);
+        }
+      }
+
+      if (
+        res?.success ||
+        credDefId ||
+        schemaId
       ) {
-        message.success(`Schema '${name}' & Credential Definition registered on ledger!`);
+        message.success(`Schema '${name}' & Credential Definition registered simultaneously on ledger!`);
         setIsSchemaModalOpen(false);
         setSchemaCreationStep(0);
         setSchemaPreviewData(null);
@@ -973,18 +1022,54 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
       title: "Status",
       dataIndex: "status",
       key: "status",
-      width: 130,
+      width: 140,
       render: (status, record) => {
-        const rawState = String(record?.raw?.state || record?.state || status || "").toLowerCase().replace(/_/g, "-");
-        const isRevoked = record?.revocationStatus === "revoked" || record?.revoked || rawState === "deleted";
-        const isIssued = [
-          "credential-acked",
-          "credential-issued",
-          "credential-received",
-          "done",
-          "issued",
-          "stored",
-        ].includes(rawState);
+        const rawState = String(
+          record?.raw?.state ||
+          record?.state ||
+          record?.raw?.display_status ||
+          record?.displayStatus ||
+          status ||
+          ""
+        ).toLowerCase().replace(/_/g, "-");
+
+        const errorMsg =
+          record?.errorMsg ||
+          record?.error_msg ||
+          record?.raw?.error_msg ||
+          record?.raw?.cred_ex_record?.error_msg;
+
+        const isRevoked =
+          record?.revocationStatus === "revoked" ||
+          record?.revoked ||
+          rawState === "deleted" ||
+          rawState === "revoked";
+
+        const isRejected =
+          status === "rejected" ||
+          status === "abandoned" ||
+          rawState === "abandoned" ||
+          rawState === "rejected" ||
+          rawState === "declined" ||
+          rawState === "cancelled" ||
+          rawState === "canceled" ||
+          rawState === "failed" ||
+          rawState.includes("abandon") ||
+          rawState.includes("reject") ||
+          Boolean(errorMsg);
+
+        const isAccepted =
+          status === "accepted" ||
+          status === "issued" ||
+          [
+            "credential-acked",
+            "credential-issued",
+            "credential-received",
+            "done",
+            "issued",
+            "stored",
+            "accepted",
+          ].includes(rawState);
 
         if (isRevoked) {
           return (
@@ -993,11 +1078,29 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
             </Tag>
           );
         }
-        return isIssued || status === "issued" ? (
-          <Tag color="success" icon={<CheckCircleOutlined />} style={{ whiteSpace: "nowrap" }}>
-            ISSUED
-          </Tag>
-        ) : (
+
+        if (isRejected) {
+          const reasonText = errorMsg
+            ? errorMsg.replace(/^issuance-abandoned:\s*/i, "")
+            : "Holder rejected credential";
+          return (
+            <Tooltip title={`Rejected by holder: ${reasonText}`}>
+              <Tag color="error" icon={<CloseCircleOutlined />} style={{ whiteSpace: "nowrap", cursor: "help" }}>
+                REJECTED
+              </Tag>
+            </Tooltip>
+          );
+        }
+
+        if (isAccepted) {
+          return (
+            <Tag color="success" icon={<CheckCircleOutlined />} style={{ whiteSpace: "nowrap" }}>
+              ACCEPTED
+            </Tag>
+          );
+        }
+
+        return (
           <Tag color="warning" icon={<ClockCircleOutlined />} style={{ whiteSpace: "nowrap" }}>
             PENDING
           </Tag>
@@ -1020,35 +1123,81 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
       key: "actions",
       width: 190,
       align: "right",
-      render: (_, record) => (
-        <Space size="small" style={{ whiteSpace: "nowrap" }}>
-          <Button
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => setSelectedCredentialForView(record)}
-          >
-            Claims
-          </Button>
-          {!record.revoked && record.revocationStatus !== "revoked" && (
+      render: (_, record) => {
+        const rawState = String(
+          record?.raw?.state ||
+          record?.state ||
+          record?.raw?.display_status ||
+          record?.displayStatus ||
+          record?.status ||
+          ""
+        ).toLowerCase().replace(/_/g, "-");
+
+        const errorMsg =
+          record?.errorMsg ||
+          record?.error_msg ||
+          record?.raw?.error_msg ||
+          record?.raw?.cred_ex_record?.error_msg;
+
+        const isRevoked =
+          record?.revocationStatus === "revoked" ||
+          record?.revoked ||
+          rawState === "deleted" ||
+          rawState === "revoked";
+
+        const isRejected =
+          record?.status === "rejected" ||
+          record?.status === "abandoned" ||
+          rawState === "abandoned" ||
+          rawState === "rejected" ||
+          rawState === "declined" ||
+          rawState.includes("abandon") ||
+          rawState.includes("reject") ||
+          Boolean(errorMsg);
+
+        const isAccepted =
+          record?.status === "accepted" ||
+          record?.status === "issued" ||
+          [
+            "credential-acked",
+            "credential-issued",
+            "credential-received",
+            "done",
+            "issued",
+            "stored",
+            "accepted",
+          ].includes(rawState);
+
+        return (
+          <Space size="small" style={{ whiteSpace: "nowrap" }}>
             <Button
               size="small"
-              danger
-              icon={<CloseCircleOutlined />}
-              onClick={() => handleOpenRevokeModal(record)}
+              icon={<EyeOutlined />}
+              onClick={() => setSelectedCredentialForView(record)}
             >
-              Revoke
+              Claims
             </Button>
-          )}
-          <Popconfirm
-            title="Delete this record?"
-            onConfirm={() => handleDeleteActivity(record.id)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button size="small" type="text" danger icon={<DeleteOutlined />} />
-          </Popconfirm>
-        </Space>
-      ),
+            {!isRevoked && !isRejected && isAccepted && (
+              <Button
+                size="small"
+                danger
+                icon={<CloseCircleOutlined />}
+                onClick={() => handleOpenRevokeModal(record)}
+              >
+                Revoke
+              </Button>
+            )}
+            <Popconfirm
+              title="Delete this record?"
+              onConfirm={() => handleDeleteActivity(record.id)}
+              okText="Yes"
+              cancelText="No"
+            >
+              <Button size="small" type="text" danger icon={<DeleteOutlined />} />
+            </Popconfirm>
+          </Space>
+        );
+      },
     },
   ];
 
@@ -1072,16 +1221,30 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
       title: "Cred Def ID",
       dataIndex: "credentialDefinitionId",
       key: "credentialDefinitionId",
-      render: (_, record) => {
-        const matching = credDefs.find(
-          (cd) =>
-            cd.schemaId === record.id ||
-            cd.schema_id === record.id ||
-            (record.seqNo && String(cd.seqNo) === String(record.seqNo)) ||
-            (cd.id && record.seqNo && cd.id.includes(`:${record.seqNo}:`))
-        );
-        if (matching) {
-          const cdId = matching.credentialDefinitionId || matching.id;
+      render: (val, record) => {
+        const credDefId =
+          val ||
+          record.credentialDefinitionId ||
+          record.credDefId ||
+          record.cred_def_id;
+
+        const matching =
+          credDefId
+            ? credDefs.find((cd) => cd.id === credDefId || cd.cred_def_id === credDefId) || { id: credDefId, credentialDefinitionId: credDefId }
+            : credDefs.find(
+              (cd) =>
+                cd.schemaId === record.id ||
+                cd.schema_id === record.id ||
+                (record.seqNo && String(cd.seqNo) === String(record.seqNo)) ||
+                (cd.id && record.seqNo && cd.id.includes(`:${record.seqNo}:`)) ||
+                (cd.seqNo && record.id && record.id.includes(`:${cd.seqNo}:`)) ||
+                (record.name && cd.schemaName && cd.schemaName.toLowerCase() === record.name.toLowerCase()) ||
+                (record.name && cd.tag && (cd.tag.toLowerCase() === record.name.toLowerCase() || record.name.toLowerCase().includes(cd.tag.toLowerCase()) || cd.tag.toLowerCase().includes(record.name.toLowerCase()))) ||
+                (record.attributes && cd.attributes && record.attributes.length > 0 && cd.attributes.length > 0 && record.attributes.every((a) => cd.attributes.includes(a)))
+            );
+
+        const cdId = matching?.credentialDefinitionId || matching?.id || matching?.cred_def_id || credDefId;
+        if (cdId) {
           return (
             <Tooltip title={cdId}>
               <Tag color="cyan" style={{ fontFamily: "monospace", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -1114,19 +1277,31 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
       title: "Action",
       key: "action",
       render: (_, record) => {
-        const matching = credDefs.find(
-          (cd) =>
-            cd.schemaId === record.id ||
-            cd.schema_id === record.id ||
-            (record.seqNo && String(cd.seqNo) === String(record.seqNo)) ||
-            (cd.id && record.seqNo && cd.id.includes(`:${record.seqNo}:`))
-        );
+        const credDefId =
+          record.credentialDefinitionId ||
+          record.credDefId ||
+          record.cred_def_id;
+
+        const matching =
+          credDefId
+            ? credDefs.find((cd) => cd.id === credDefId || cd.cred_def_id === credDefId) || { id: credDefId }
+            : credDefs.find(
+              (cd) =>
+                cd.schemaId === record.id ||
+                cd.schema_id === record.id ||
+                (record.seqNo && String(cd.seqNo) === String(record.seqNo)) ||
+                (cd.id && record.seqNo && cd.id.includes(`:${record.seqNo}:`)) ||
+                (cd.seqNo && record.id && record.id.includes(`:${cd.seqNo}:`)) ||
+                (record.name && cd.schemaName && cd.schemaName.toLowerCase() === record.name.toLowerCase()) ||
+                (record.name && cd.tag && (cd.tag.toLowerCase() === record.name.toLowerCase() || record.name.toLowerCase().includes(cd.tag.toLowerCase()) || cd.tag.toLowerCase().includes(record.name.toLowerCase()))) ||
+                (record.attributes && cd.attributes && record.attributes.length > 0 && cd.attributes.length > 0 && record.attributes.every((a) => cd.attributes.includes(a)))
+            );
         return (
           <Space>
             <Button size="small" icon={<EyeOutlined />} onClick={() => setSelectedSchemaForView(record)}>
               View Template
             </Button>
-            {!matching && (
+            {!matching && !credDefId && (
               <Button
                 size="small"
                 type="primary"
@@ -1363,7 +1538,7 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
                       CDAC-SSI Ledger
                     </a>
                   </div>
-                  <div className="telemetry-sub">Status: Synced • Running on port 9000</div>
+                  <div className="telemetry-sub">Status: Synced</div>
                 </div>
               </div>
 
@@ -1862,271 +2037,271 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
         >
           <div className="schema-modal-scrollable-body">
             <Steps
-            current={schemaCreationStep}
-            size="small"
-            style={{ marginBottom: 20, marginTop: 8 }}
-            items={[
-              {
-                title: "1. Define Schema",
-                description: "Attributes & Metadata",
-              },
-              {
-                title: "2. Preview & Register",
-                description: "Verify before anchoring",
-              },
-            ]}
-          />
+              current={schemaCreationStep}
+              size="small"
+              style={{ marginBottom: 20, marginTop: 8 }}
+              items={[
+                {
+                  title: "1. Define Schema",
+                  description: "Attributes & Metadata",
+                },
+                {
+                  title: "2. Preview & Register",
+                  description: "Verify before anchoring",
+                },
+              ]}
+            />
 
-          <div style={{ display: schemaCreationStep === 0 ? "block" : "none" }}>
-            <Form form={schemaForm} layout="vertical" onFinish={handleProceedToPreview} style={{ marginTop: 12 }}>
-              <div style={{ marginBottom: 16, background: "#f8fafc", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 6 }}>
-                  Quick Schema Presets:
+            <div style={{ display: schemaCreationStep === 0 ? "block" : "none" }}>
+              <Form form={schemaForm} layout="vertical" onFinish={handleProceedToPreview} style={{ marginTop: 12 }}>
+                <div style={{ marginBottom: 16, background: "#f8fafc", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 6 }}>
+                    Quick Schema Presets:
+                  </div>
+                  <Space wrap size="small">
+                    <Button size="small" onClick={() => applyAttributePreset("student")}>
+                      🎓 Degree / Education
+                    </Button>
+                    <Button size="small" onClick={() => applyAttributePreset("employee")}>
+                      💼 Corporate Employee
+                    </Button>
+                    <Button size="small" onClick={() => applyAttributePreset("citizen")}>
+                      🏛️ Citizen ID / KYC
+                    </Button>
+                  </Space>
                 </div>
-                <Space wrap size="small">
-                  <Button size="small" onClick={() => applyAttributePreset("student")}>
-                    🎓 Degree / Education
-                  </Button>
-                  <Button size="small" onClick={() => applyAttributePreset("employee")}>
-                    💼 Corporate Employee
-                  </Button>
-                  <Button size="small" onClick={() => applyAttributePreset("citizen")}>
-                    🏛️ Citizen ID / KYC
-                  </Button>
-                </Space>
-              </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
-                <Form.Item
-                  name="name"
-                  label="Schema Name"
-                  rules={[{ required: true, message: "Please input schema name" }]}
-                >
-                  <Input placeholder="e.g. Employee ID, Degree Certificate, Testing_Schema" />
-                </Form.Item>
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
+                  <Form.Item
+                    name="name"
+                    label="Schema Name"
+                    rules={[{ required: true, message: "Please input schema name" }]}
+                  >
+                    <Input placeholder="e.g. Employee ID, Degree Certificate, Testing_Schema" />
+                  </Form.Item>
 
-                <Form.Item
-                  name="version"
-                  label="Version"
-                  initialValue="1.0"
-                  rules={[{ required: true, message: "Please enter version" }]}
-                >
-                  <Input placeholder="1.0" />
-                </Form.Item>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12, marginBottom: 8 }}>
-                <Form.Item
-                  name="tag"
-                  label="Credential Definition Tag"
-                  initialValue="default"
-                  rules={[{ required: true, message: "Please enter credential definition tag" }]}
-                >
-                  <Input placeholder="e.g. default, test_subject" />
-                </Form.Item>
-
-                <Form.Item
-                  name="supportRevocation"
-                  label="Revocation Support"
-                  valuePropName="checked"
-                  initialValue={true}
-                >
-                  <Switch checkedChildren="Enabled" unCheckedChildren="Disabled" defaultChecked />
-                </Form.Item>
-              </div>
-
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <label style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>
-                    Credential Attributes ({schemaAttributes.length})
-                  </label>
-                  <span style={{ fontSize: 12, color: "#64748b" }}>Press Enter or click Add</span>
+                  <Form.Item
+                    name="version"
+                    label="Version"
+                    initialValue="1.0"
+                    rules={[{ required: true, message: "Please enter version" }]}
+                  >
+                    <Input placeholder="1.0" />
+                  </Form.Item>
                 </div>
-                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                  <Input
-                    placeholder="Add attribute claim (e.g. employeeId, department, gpa, clearanceLevel)"
-                    value={newAttributeInput}
-                    onChange={(e) => setNewAttributeInput(e.target.value)}
-                    onPressEnter={(e) => {
-                      e.preventDefault();
-                      handleAddAttribute();
+
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12, marginBottom: 8 }}>
+                  <Form.Item
+                    name="tag"
+                    label="Credential Definition Tag"
+                    initialValue="default"
+                    rules={[{ required: true, message: "Please enter credential definition tag" }]}
+                  >
+                    <Input placeholder="e.g. default, test_subject" />
+                  </Form.Item>
+
+                  <Form.Item
+                    name="supportRevocation"
+                    label="Revocation Support"
+                    valuePropName="checked"
+                    initialValue={true}
+                  >
+                    <Switch checkedChildren="Enabled" unCheckedChildren="Disabled" defaultChecked />
+                  </Form.Item>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <label style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>
+                      Credential Attributes ({schemaAttributes.length})
+                    </label>
+                    <span style={{ fontSize: 12, color: "#64748b" }}>Press Enter or click Add</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                    <Input
+                      placeholder="Add attribute claim (e.g. employeeId, department, gpa, clearanceLevel)"
+                      value={newAttributeInput}
+                      onChange={(e) => setNewAttributeInput(e.target.value)}
+                      onPressEnter={(e) => {
+                        e.preventDefault();
+                        handleAddAttribute();
+                      }}
+                    />
+                    <Button type="dashed" onClick={handleAddAttribute} icon={<PlusOutlined />}>
+                      Add Claim
+                    </Button>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      padding: 12,
+                      background: "#f1f5f9",
+                      borderRadius: 8,
+                      border: "1px dashed #cbd5e1",
+                      minHeight: 52,
+                      alignItems: "center",
                     }}
-                  />
-                  <Button type="dashed" onClick={handleAddAttribute} icon={<PlusOutlined />}>
-                    Add Claim
+                  >
+                    {schemaAttributes.length === 0 ? (
+                      <span style={{ fontSize: 12, color: "#94a3b8" }}>No attributes added yet. Add at least one attribute.</span>
+                    ) : (
+                      schemaAttributes.map((attr) => (
+                        <Tag
+                          key={attr}
+                          closable
+                          onClose={() => handleRemoveAttribute(attr)}
+                          color="blue"
+                          style={{ fontSize: 13, padding: "4px 10px", borderRadius: 6, fontWeight: 500 }}
+                        >
+                          {attr}
+                        </Tag>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24 }}>
+                  <Button onClick={handleCloseCreateSchemaModal}>Cancel</Button>
+                  <Button type="primary" htmlType="submit" icon={<ArrowRightOutlined />} style={{ background: "#2563EB", borderColor: "#2563EB" }}>
+                    Proceed to Schema Preview
                   </Button>
                 </div>
+              </Form>
+            </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 8,
-                    padding: 12,
-                    background: "#f1f5f9",
-                    borderRadius: 8,
-                    border: "1px dashed #cbd5e1",
-                    minHeight: 52,
-                    alignItems: "center",
-                  }}
-                >
-                  {schemaAttributes.length === 0 ? (
-                    <span style={{ fontSize: 12, color: "#94a3b8" }}>No attributes added yet. Add at least one attribute.</span>
-                  ) : (
-                    schemaAttributes.map((attr) => (
-                      <Tag
-                        key={attr}
-                        closable
-                        onClose={() => handleRemoveAttribute(attr)}
-                        color="blue"
-                        style={{ fontSize: 13, padding: "4px 10px", borderRadius: 6, fontWeight: 500 }}
-                      >
-                        {attr}
-                      </Tag>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24 }}>
-                <Button onClick={handleCloseCreateSchemaModal}>Cancel</Button>
-                <Button type="primary" htmlType="submit" icon={<ArrowRightOutlined />} style={{ background: "#2563EB", borderColor: "#2563EB" }}>
-                  Proceed to Schema Preview
-                </Button>
-              </div>
-            </Form>
-          </div>
-
-          <div style={{ display: schemaCreationStep === 1 ? "block" : "none" }}>
-            <div style={{ marginTop: 12 }}>
-              {/* SECTION 1: BASIC INFORMATION PREVIEW */}
-              <div className="schema-section-card">
-                <div className="schema-section-header">
-                  <span className="schema-section-title">
-                    <ApartmentOutlined style={{ color: "#2563eb" }} />
-                    1. Basic Information
-                  </span>
-                  <Tag color="processing" icon={<ClockCircleOutlined />} style={{ borderRadius: 12, fontWeight: 600 }}>
-                    READY TO ANCHOR
-                  </Tag>
-                </div>
-                <div className="schema-section-content">
-                  <div className="schema-basic-grid">
-                    <div className="schema-info-item">
-                      <span className="schema-info-label">Schema Name</span>
-                      <span className="schema-info-value" style={{ fontSize: 15, color: "#1e3a8a" }}>
-                        {schemaPreviewData?.name}
-                      </span>
-                    </div>
-
-                    <div className="schema-info-item">
-                      <span className="schema-info-label">Version</span>
-                      <span className="schema-info-value">
-                        <Tag color="blue" style={{ borderRadius: 6, fontWeight: 600, fontSize: 12 }}>
-                          v{schemaPreviewData?.version}
-                        </Tag>
-                      </span>
-                    </div>
-
-                    <div className="schema-info-item">
-                      <span className="schema-info-label">Cred Def Tag</span>
-                      <span className="schema-info-value">
-                        <Tag color="purple" style={{ borderRadius: 6, fontWeight: 600, fontSize: 12 }}>
-                          {schemaPreviewData?.tag || "default"}
-                        </Tag>
-                      </span>
-                    </div>
-
-                    <div className="schema-info-item">
-                      <span className="schema-info-label">Revocation Support</span>
-                      <span className="schema-info-value">
-                        <Tag color={schemaPreviewData?.supportRevocation !== false ? "green" : "orange"} style={{ borderRadius: 6, fontWeight: 600, fontSize: 12 }}>
-                          {schemaPreviewData?.supportRevocation !== false ? "Enabled (Accumulator)" : "Disabled"}
-                        </Tag>
-                      </span>
-                    </div>
-
-                    <div className="schema-info-item" style={{ gridColumn: "1 / -1" }}>
-                      <span className="schema-info-label">Issuer Sovereign DID</span>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
-                        <code style={{ fontSize: 12, color: "#0369a1", background: "#f0f9ff", padding: "2px 8px", borderRadius: 4 }}>
-                          {currentIssuerDID || "did:sov:JuGgR7FBWxcAPhPG6kgZbU"}
-                        </code>
-                        <Tag color="cyan" style={{ fontSize: 11, borderRadius: 10 }}>
-                          Author DID
-                        </Tag>
-                      </div>
-                    </div>
-
-                    <div className="schema-info-item" style={{ gridColumn: "1 / -1" }}>
-                      <span className="schema-info-label">Target Distributed Ledger</span>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
-                        <span style={{ fontSize: 13, color: "#0f172a", fontWeight: 600 }}>
-                          <GlobalOutlined style={{ color: "#0284c7", marginRight: 6 }} />
-                          CDAC-SSI Ledger (10.210.13.22:9000)
+            <div style={{ display: schemaCreationStep === 1 ? "block" : "none" }}>
+              <div style={{ marginTop: 12 }}>
+                {/* SECTION 1: BASIC INFORMATION PREVIEW */}
+                <div className="schema-section-card">
+                  <div className="schema-section-header">
+                    <span className="schema-section-title">
+                      <ApartmentOutlined style={{ color: "#2563eb" }} />
+                      1. Basic Information
+                    </span>
+                    <Tag color="processing" icon={<ClockCircleOutlined />} style={{ borderRadius: 12, fontWeight: 600 }}>
+                      READY TO ANCHOR
+                    </Tag>
+                  </div>
+                  <div className="schema-section-content">
+                    <div className="schema-basic-grid">
+                      <div className="schema-info-item">
+                        <span className="schema-info-label">Schema Name</span>
+                        <span className="schema-info-value" style={{ fontSize: 15, color: "#1e3a8a" }}>
+                          {schemaPreviewData?.name}
                         </span>
                       </div>
+
+                      <div className="schema-info-item">
+                        <span className="schema-info-label">Version</span>
+                        <span className="schema-info-value">
+                          <Tag color="blue" style={{ borderRadius: 6, fontWeight: 600, fontSize: 12 }}>
+                            v{schemaPreviewData?.version}
+                          </Tag>
+                        </span>
+                      </div>
+
+                      <div className="schema-info-item">
+                        <span className="schema-info-label">Cred Def Tag</span>
+                        <span className="schema-info-value">
+                          <Tag color="purple" style={{ borderRadius: 6, fontWeight: 600, fontSize: 12 }}>
+                            {schemaPreviewData?.tag || "default"}
+                          </Tag>
+                        </span>
+                      </div>
+
+                      <div className="schema-info-item">
+                        <span className="schema-info-label">Revocation Support</span>
+                        <span className="schema-info-value">
+                          <Tag color={schemaPreviewData?.supportRevocation !== false ? "green" : "orange"} style={{ borderRadius: 6, fontWeight: 600, fontSize: 12 }}>
+                            {schemaPreviewData?.supportRevocation !== false ? "Enabled (Accumulator)" : "Disabled"}
+                          </Tag>
+                        </span>
+                      </div>
+
+                      <div className="schema-info-item" style={{ gridColumn: "1 / -1" }}>
+                        <span className="schema-info-label">Issuer Sovereign DID</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+                          <code style={{ fontSize: 12, color: "#0369a1", background: "#f0f9ff", padding: "2px 8px", borderRadius: 4 }}>
+                            {currentIssuerDID || "did:sov:JuGgR7FBWxcAPhPG6kgZbU"}
+                          </code>
+                          <Tag color="cyan" style={{ fontSize: 11, borderRadius: 10 }}>
+                            Author DID
+                          </Tag>
+                        </div>
+                      </div>
+
+                      <div className="schema-info-item" style={{ gridColumn: "1 / -1" }}>
+                        <span className="schema-info-label">Target Distributed Ledger</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+                          <span style={{ fontSize: 13, color: "#0f172a", fontWeight: 600 }}>
+                            <GlobalOutlined style={{ color: "#0284c7", marginRight: 6 }} />
+                            CDAC-SSI Ledger (10.210.13.22:9000)
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* SECTION 2: CREDENTIAL ATTRIBUTES (PROMINENT!) */}
-              <div className="schema-section-card attributes-prominent-card">
-                <div className="schema-section-header attributes-prominent-header">
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <FieldStringOutlined style={{ color: "#2563eb", fontSize: 17 }} />
-                    <span className="schema-section-title attributes-prominent-title">
-                      2. Credential Attributes
-                    </span>
-                    <span className="attributes-badge-counter">
-                      {schemaPreviewData?.attributes?.length || 0} Defined Claims
-                    </span>
+                {/* SECTION 2: CREDENTIAL ATTRIBUTES (PROMINENT!) */}
+                <div className="schema-section-card attributes-prominent-card">
+                  <div className="schema-section-header attributes-prominent-header">
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <FieldStringOutlined style={{ color: "#2563eb", fontSize: 17 }} />
+                      <span className="schema-section-title attributes-prominent-title">
+                        2. Credential Attributes
+                      </span>
+                      <span className="attributes-badge-counter">
+                        {schemaPreviewData?.attributes?.length || 0} Defined Claims
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                <div className="schema-section-content">
-                  <div className="attributes-grid-container">
-                    {schemaPreviewData?.attributes?.map((attr, idx) => (
-                      <div key={idx} className="attribute-item-card">
-                        <div className="attribute-pill-left">
-                          <span className="attribute-index-tag">#{idx + 1}</span>
-                          <span className="attribute-name-text">{attr}</span>
+                  <div className="schema-section-content">
+                    <div className="attributes-grid-container">
+                      {schemaPreviewData?.attributes?.map((attr, idx) => (
+                        <div key={idx} className="attribute-item-card">
+                          <div className="attribute-pill-left">
+                            <span className="attribute-index-tag">#{idx + 1}</span>
+                            <span className="attribute-name-text">{attr}</span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* IMMUTABLE LEDGER NOTICE */}
-              <Alert
-                message="Immutable Ledger Verification Notice"
-                description="Once this schema is anchored on the distributed ledger, its attributes and name cannot be modified or deleted. Please ensure all required claim fields are accurate before confirming."
-                type="warning"
-                showIcon
-                style={{ borderRadius: 8, marginBottom: 20 }}
-              />
+                {/* IMMUTABLE LEDGER NOTICE */}
+                <Alert
+                  message="Immutable Ledger Verification Notice"
+                  description="Once this schema is anchored on the distributed ledger, its attributes and name cannot be modified or deleted. Please ensure all required claim fields are accurate before confirming."
+                  type="warning"
+                  showIcon
+                  style={{ borderRadius: 8, marginBottom: 20 }}
+                />
 
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <Button icon={<ArrowLeftOutlined />} onClick={handleBackToEditSchema}>
-                  Back to Edit
-                </Button>
-                <Space>
-                  <Button onClick={handleCloseCreateSchemaModal}>Cancel</Button>
-                  <Button
-                    type="primary"
-                    loading={isPublishingSchema}
-                    onClick={handleFinalPublishSchema}
-                    icon={<SafetyCertificateOutlined />}
-                    style={{ background: "#2563EB", borderColor: "#2563EB", fontWeight: 600, padding: "0 20px" }}
-                  >
-                    Confirm & Register on Ledger
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <Button icon={<ArrowLeftOutlined />} onClick={handleBackToEditSchema}>
+                    Back to Edit
                   </Button>
-                </Space>
+                  <Space>
+                    <Button onClick={handleCloseCreateSchemaModal}>Cancel</Button>
+                    <Button
+                      type="primary"
+                      loading={isPublishingSchema}
+                      onClick={handleFinalPublishSchema}
+                      icon={<SafetyCertificateOutlined />}
+                      style={{ background: "#2563EB", borderColor: "#2563EB", fontWeight: 600, padding: "0 20px" }}
+                    >
+                      Confirm & Register on Ledger
+                    </Button>
+                  </Space>
+                </div>
               </div>
             </div>
-          </div>
           </div>
         </Modal>
 
@@ -2230,16 +2405,23 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
           onClose={() => setSelectedSchemaForView(null)}
           schema={selectedSchemaForView}
           credDef={
-            credDefs.find(
-              (cd) =>
-                cd.schemaId === selectedSchemaForView?.id ||
-                cd.schema_id === selectedSchemaForView?.id ||
-                (selectedSchemaForView?.seqNo && String(cd.seqNo) === String(selectedSchemaForView.seqNo)) ||
-                (cd.id && selectedSchemaForView?.seqNo && cd.id.includes(`:${selectedSchemaForView.seqNo}:`)) ||
-                (selectedSchemaForView?.name &&
-                  cd.schemaName &&
-                  cd.schemaName.toLowerCase() === selectedSchemaForView.name.toLowerCase())
-            ) || null
+            (selectedSchemaForView?.credDefId || selectedSchemaForView?.cred_def_id || selectedSchemaForView?.credentialDefinitionId)
+              ? (credDefs.find(cd => cd.id === (selectedSchemaForView.credDefId || selectedSchemaForView.cred_def_id || selectedSchemaForView.credentialDefinitionId)) || { id: selectedSchemaForView.credDefId || selectedSchemaForView.cred_def_id || selectedSchemaForView.credentialDefinitionId })
+              : (credDefs.find(
+                (cd) =>
+                  cd.schemaId === selectedSchemaForView?.id ||
+                  cd.schema_id === selectedSchemaForView?.id ||
+                  (selectedSchemaForView?.seqNo && String(cd.seqNo) === String(selectedSchemaForView.seqNo)) ||
+                  (cd.id && selectedSchemaForView?.seqNo && cd.id.includes(`:${selectedSchemaForView.seqNo}:`)) ||
+                  (cd.seqNo && selectedSchemaForView?.id && selectedSchemaForView.id.includes(`:${cd.seqNo}:`)) ||
+                  (selectedSchemaForView?.name &&
+                    cd.schemaName &&
+                    cd.schemaName.toLowerCase() === selectedSchemaForView.name.toLowerCase()) ||
+                  (selectedSchemaForView?.name &&
+                    cd.tag &&
+                    (cd.tag.toLowerCase() === selectedSchemaForView.name.toLowerCase() || selectedSchemaForView.name.toLowerCase().includes(cd.tag.toLowerCase()))) ||
+                  (selectedSchemaForView?.attributes && cd.attributes && selectedSchemaForView.attributes.length > 0 && cd.attributes.length > 0 && selectedSchemaForView.attributes.every(a => cd.attributes.includes(a)))
+              ) || null)
           }
           credDefs={credDefs}
         />

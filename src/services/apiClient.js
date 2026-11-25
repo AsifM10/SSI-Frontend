@@ -415,7 +415,44 @@ export const issuerService = {
     };
     // Combined Schema & Credential Definition creation: POST /api/v1/issuer/credential-definitions
     const res = await apiClient.post(ENDPOINTS.ISSUER.CREDENTIAL_DEFINITIONS, payload);
-    return res.data;
+    let result = res.data;
+    const credDefId =
+      result?.credential_definition_id ||
+      result?.data?.credential_definition_id ||
+      result?.cred_def_id ||
+      result?.data?.cred_def_id;
+    const schemaId =
+      result?.schema_id ||
+      result?.data?.schema_id ||
+      result?.id ||
+      result?.data?.id;
+
+    if (!credDefId && schemaId) {
+      try {
+        const cdRes = await issuerApi.createCredDef({
+          schema_id: schemaId,
+          schemaId: schemaId,
+          schema_name: name,
+          schemaName: name,
+          schema_version: version,
+          schemaVersion: version,
+          attributes: attrs,
+          requiredHolderAttributes: payload.requiredHolderAttributes,
+          issuanceMode: "AUTO_ISSUE",
+          tag,
+          support_revocation: supportRev,
+          supportRevocation: supportRev,
+          revocation_registry_size: 1000,
+          revocationRegistrySize: 1000,
+        });
+        if (cdRes?.data || cdRes?.credential_definition_id || cdRes?.id) {
+          result = { ...result, ...(cdRes.data || cdRes) };
+        }
+      } catch (err) {
+        console.warn("Auto-publish cred def fallback in createSchema:", err?.message || err);
+      }
+    }
+    return result;
   },
 
   getCredentialDefinitions: async () => {
@@ -475,72 +512,90 @@ export const issuerService = {
         }
       }
 
-      const normalized = rawList.map((d, idx) => {
-        let credDefId =
-          typeof d === "string"
-            ? d
-            : d.cred_def_id ||
-            d.credential_definition_id ||
-            d.credentialDefinitionId ||
-            d.id;
+      const normalized = await Promise.all(
+        rawList.map(async (d, idx) => {
+          let credDefId =
+            typeof d === "string"
+              ? d
+              : d.cred_def_id ||
+              d.credential_definition_id ||
+              d.credentialDefinitionId ||
+              d.id;
 
-        const parts = String(credDefId || "").split(":");
-        const seqNo =
-          typeof d === "object" && d.seqNo
-            ? d.seqNo
-            : parts.length >= 4 && !isNaN(Number(parts[3]))
-              ? parts[3]
+          const parts = String(credDefId || "").split(":");
+          const seqNo =
+            typeof d === "object" && d.seqNo
+              ? d.seqNo
+              : parts.length >= 4 && !isNaN(Number(parts[3]))
+                ? parts[3]
+                : null;
+          const tag =
+            (typeof d === "object" ? d.tag : null) ||
+            (parts.length >= 5 ? parts[4] : "default");
+          let schemaId =
+            (typeof d === "object"
+              ? d.schema_id || d.schemaId || d.schema
+              : null) || (seqNo ? String(seqNo) : "");
+          const supportRevocation = Boolean(
+            d?.support_revocation ?? d?.supportRevocation ?? false
+          );
+
+          let schemaName =
+            typeof d === "object"
+              ? d.schemaName || d.schema_name || d.name || null
               : null;
-        const tag =
-          (typeof d === "object" ? d.tag : null) ||
-          (parts.length >= 5 ? parts[4] : "default");
-        const schemaId =
-          (typeof d === "object"
-            ? d.schema_id || d.schemaId || d.schema
-            : null) || (seqNo ? String(seqNo) : "");
-        const supportRevocation = Boolean(
-          d?.support_revocation ?? d?.supportRevocation ?? false
-        );
 
-        const schemaName =
-          typeof d === "object"
-            ? d.schemaName || d.schema_name || d.name || null
-            : null;
-
-        let attrs = [];
-        if (typeof d === "object" && d !== null) {
-          if (Array.isArray(d.attributes) && d.attributes.length > 0) {
-            attrs = d.attributes.map((a) => (typeof a === "object" && a !== null ? a.name || a.label || a.key : String(a))).filter(Boolean);
-          } else if (Array.isArray(d.attrNames) && d.attrNames.length > 0) {
-            attrs = d.attrNames;
-          } else if (Array.isArray(d.attr_names) && d.attr_names.length > 0) {
-            attrs = d.attr_names;
-          } else if (Array.isArray(d.requiredHolderAttributes) && d.requiredHolderAttributes.length > 0) {
-            attrs = d.requiredHolderAttributes.map((a) => (typeof a === "object" && a !== null ? a.name || a.label || a.key : String(a))).filter(Boolean);
+          let attrs = [];
+          if (typeof d === "object" && d !== null) {
+            if (Array.isArray(d.attributes) && d.attributes.length > 0) {
+              attrs = d.attributes.map((a) => (typeof a === "object" && a !== null ? a.name || a.label || a.key : String(a))).filter(Boolean);
+            } else if (Array.isArray(d.attrNames) && d.attrNames.length > 0) {
+              attrs = d.attrNames;
+            } else if (Array.isArray(d.attr_names) && d.attr_names.length > 0) {
+              attrs = d.attr_names;
+            } else if (Array.isArray(d.requiredHolderAttributes) && d.requiredHolderAttributes.length > 0) {
+              attrs = d.requiredHolderAttributes.map((a) => (typeof a === "object" && a !== null ? a.name || a.label || a.key : String(a))).filter(Boolean);
+            }
           }
-        }
 
-        // Ensure credDefId is never a dummy string
-        if (!credDefId || !credDefId.includes(":3:CL:")) {
-          if (seqNo) {
-            credDefId = `${storedIssuerDid}:3:CL:${seqNo}:${tag}`;
+          // Fetch full cred def details from ACA-Py if attributes are missing
+          if (attrs.length === 0 && credDefId && credDefId.includes(":3:CL:")) {
+            try {
+              const cdRes = await issuerApi.getCredDef(credDefId).catch(() => null);
+              const cdData = cdRes?.data?.credential_definition || cdRes?.credential_definition || cdRes?.data || cdRes;
+              if (cdData?.value?.primary?.r) {
+                attrs = Object.keys(cdData.value.primary.r).filter((k) => k !== "master_secret");
+              }
+              if (cdData?.schemaId && !schemaId) {
+                schemaId = String(cdData.schemaId);
+              }
+            } catch {
+              // fallback gracefully
+            }
           }
-        }
 
-        return {
-          id: credDefId,
-          cred_def_id: credDefId,
-          credentialDefinitionId: credDefId,
-          schemaId,
-          seqNo,
-          tag,
-          schemaName,
-          attributes: attrs,
-          attrNames: attrs,
-          supportRevocation,
-          raw: d,
-        };
-      });
+          // Ensure credDefId is never a dummy string
+          if (!credDefId || !credDefId.includes(":3:CL:")) {
+            if (seqNo) {
+              credDefId = `${storedIssuerDid}:3:CL:${seqNo}:${tag}`;
+            }
+          }
+
+          return {
+            id: credDefId,
+            cred_def_id: credDefId,
+            credentialDefinitionId: credDefId,
+            schemaId,
+            seqNo,
+            tag,
+            schemaName,
+            attributes: attrs,
+            attrNames: attrs,
+            supportRevocation,
+            raw: d,
+          };
+        })
+      );
 
       return { success: true, data: normalized };
     } catch (err) {
@@ -571,58 +626,90 @@ export const issuerService = {
   getIssuanceActivity: async () => {
     try {
       let rawRecords = [];
+
+      // 1. Try Aries Issue-Credential 2.0 exchange records first (holds real-time state e.g. "abandoned")
       try {
-        const res = await issuerApi.getRecordedCredentials();
-        const data = res?.data?.results || res?.data || res?.results || res || [];
-        if (Array.isArray(data)) rawRecords = data;
+        const resRecords = await issuerApi.getCredentialRecords().catch(() => null);
+        const dataRecords = resRecords?.data?.results || resRecords?.data?.data || resRecords?.data || resRecords?.results || [];
+        if (Array.isArray(dataRecords) && dataRecords.length > 0) {
+          rawRecords = dataRecords;
+        }
+      } catch (e) {
+        console.warn("Failed to fetch /issuer/credentials/records:", e?.message);
+      }
+
+      // 2. Also fetch /issuer/credentials and merge any unlisted records
+      try {
+        const resCreds = await issuerApi.getRecordedCredentials().catch(() => null);
+        const dataCreds = resCreds?.data?.results || resCreds?.data?.data || resCreds?.data || resCreds?.results || [];
+        if (Array.isArray(dataCreds) && dataCreds.length > 0) {
+          const existingIds = new Set(rawRecords.map((r) => r?.cred_ex_id || r?.credential_exchange_id || r?.id));
+          dataCreds.forEach((item) => {
+            const id = item?.cred_ex_id || item?.credential_exchange_id || item?.id;
+            if (!id || !existingIds.has(id)) {
+              rawRecords.push(item);
+            }
+          });
+        }
       } catch (e) {
         console.warn("Failed to fetch /issuer/credentials:", e?.message);
       }
 
-      if (rawRecords.length === 0) {
-        try {
-          const res = await issuerApi.getCredentialRecords();
-          const data = res?.data?.results || res?.data || res?.results || res || [];
-          if (Array.isArray(data)) rawRecords = data;
-        } catch (e) {
-          // ignore
-        }
-      }
-
       const mapped = rawRecords.map((item, idx) => {
         const r = item?.cred_ex_record || item?.record || item;
-        const id = r.cred_ex_id || r.credential_exchange_id || r.id || `act-${idx + 1}`;
+        const id = r.cred_ex_id || item?.cred_ex_id || r.credential_exchange_id || item?.credential_exchange_id || r.id || item?.id || `act-${idx + 1}`;
 
         // 1. Resolve true Credential Definition ID from 2.0 exchange records or top-level
         const credDefId =
+          item?.by_format?.cred_offer?.anoncreds?.cred_def_id ||
           r.by_format?.cred_offer?.anoncreds?.cred_def_id ||
+          item?.by_format?.cred_offer?.indy?.cred_def_id ||
           r.by_format?.cred_offer?.indy?.cred_def_id ||
+          item?.by_format?.cred_issue?.anoncreds?.cred_def_id ||
           r.by_format?.cred_issue?.anoncreds?.cred_def_id ||
+          item?.by_format?.cred_issue?.indy?.cred_def_id ||
           r.by_format?.cred_issue?.indy?.cred_def_id ||
+          item?.by_format?.cred_proposal?.anoncreds?.cred_def_id ||
           r.by_format?.cred_proposal?.anoncreds?.cred_def_id ||
+          item?.by_format?.cred_proposal?.indy?.cred_def_id ||
           r.by_format?.cred_proposal?.indy?.cred_def_id ||
+          item?.cred_def_id ||
           r.cred_def_id ||
+          item?.credential_definition_id ||
           r.credential_definition_id ||
+          item?.credentialDefinitionId ||
           r.credentialDefinitionId ||
           "";
 
         // 2. Resolve Schema ID & Schema Name
         const schemaId =
+          item?.by_format?.cred_offer?.anoncreds?.schema_id ||
           r.by_format?.cred_offer?.anoncreds?.schema_id ||
+          item?.by_format?.cred_offer?.indy?.schema_id ||
           r.by_format?.cred_offer?.indy?.schema_id ||
+          item?.by_format?.cred_issue?.anoncreds?.schema_id ||
           r.by_format?.cred_issue?.anoncreds?.schema_id ||
+          item?.by_format?.cred_issue?.indy?.schema_id ||
           r.by_format?.cred_issue?.indy?.schema_id ||
+          item?.schema_id ||
           r.schema_id ||
+          item?.schemaId ||
           r.schemaId ||
           "";
 
         let schemaName =
-          r.by_format?.cred_offer?.anoncreds?.schema_name ||
-          r.by_format?.cred_offer?.indy?.schema_name ||
-          r.by_format?.cred_issue?.anoncreds?.schema_name ||
-          r.by_format?.cred_issue?.indy?.schema_name ||
+          item?.schema_name ||
           r.schema_name ||
-          r.schemaName;
+          item?.schemaName ||
+          r.schemaName ||
+          item?.by_format?.cred_offer?.anoncreds?.schema_name ||
+          r.by_format?.cred_offer?.anoncreds?.schema_name ||
+          item?.by_format?.cred_offer?.indy?.schema_name ||
+          r.by_format?.cred_offer?.indy?.schema_name ||
+          item?.by_format?.cred_issue?.anoncreds?.schema_name ||
+          r.by_format?.cred_issue?.anoncreds?.schema_name ||
+          item?.by_format?.cred_issue?.indy?.schema_name ||
+          r.by_format?.cred_issue?.indy?.schema_name;
 
         if (!schemaName && schemaId && schemaId.includes(":")) {
           const sParts = schemaId.split(":");
@@ -642,13 +729,21 @@ export const issuerService = {
         // 3. Extract and normalize claims/attributes into a clean dictionary
         const rawAttrs =
           r.cred_preview?.attributes ||
+          item?.cred_preview?.attributes ||
           r.cred_offer?.credential_preview?.attributes ||
+          item?.cred_offer?.credential_preview?.attributes ||
           r.cred_proposal?.credential_preview?.attributes ||
+          item?.cred_proposal?.credential_preview?.attributes ||
           r.credential_preview?.attributes ||
+          item?.credential_preview?.attributes ||
           r.by_format?.cred_offer?.anoncreds?.attributes ||
+          item?.by_format?.cred_offer?.anoncreds?.attributes ||
           r.by_format?.cred_issue?.anoncreds?.attributes ||
+          item?.by_format?.cred_issue?.anoncreds?.attributes ||
           r.attributes ||
+          item?.attributes ||
           r.claims ||
+          item?.claims ||
           {};
 
         const attrsObj = {};
@@ -666,19 +761,63 @@ export const issuerService = {
         }
 
         // 4. Normalize ACA-Py issue credential states (hyphenated & underscored)
-        const cleanState = String(r.state || r.status || "").toLowerCase().replace(/_/g, "-");
-        const isRevoked = cleanState === "deleted" || r.revoked === true || r.revocationStatus === "revoked";
-        const isIssued = [
+        const cleanState = String(
+          r.state ||
+          item?.state ||
+          r.status ||
+          item?.status ||
+          r.display_status ||
+          item?.display_status ||
+          ""
+        ).toLowerCase().replace(/_/g, "-");
+
+        const errorMsg =
+          r.error_msg ||
+          item?.error_msg ||
+          r.error ||
+          item?.error ||
+          r.problem_report ||
+          "";
+
+        const isRevoked =
+          cleanState === "deleted" ||
+          cleanState === "revoked" ||
+          r.revoked === true ||
+          item?.revoked === true ||
+          r.revocationStatus === "revoked" ||
+          item?.revocationStatus === "revoked";
+
+        const isRejected =
+          cleanState === "abandoned" ||
+          cleanState === "rejected" ||
+          cleanState === "declined" ||
+          cleanState === "cancelled" ||
+          cleanState === "canceled" ||
+          cleanState === "failed" ||
+          cleanState === "error" ||
+          cleanState.includes("abandon") ||
+          cleanState.includes("reject") ||
+          Boolean(errorMsg);
+
+        const isAccepted = [
           "credential-acked",
           "credential-issued",
           "credential-received",
           "done",
           "issued",
           "stored",
+          "accepted",
         ].includes(cleanState);
-        const status = isRevoked ? "revoked" : isIssued ? "issued" : "pending";
 
-        const issueDate = r.created_at || r.updated_at || r.issuedAt || new Date().toISOString();
+        const status = isRevoked
+          ? "revoked"
+          : isRejected
+            ? "rejected"
+            : isAccepted
+              ? "accepted"
+              : "pending";
+
+        const issueDate = r.created_at || item?.created_at || r.updated_at || item?.updated_at || r.issuedAt || item?.issuedAt || new Date().toISOString();
 
         return {
           id,
@@ -690,20 +829,23 @@ export const issuerService = {
           schemaName,
           schema_name: schemaName,
           credentialDefinition: schemaName,
-          holderDid: r.holder_did || r.their_did || r.connection_id || r.holderDid || "Edge Holder",
-          holderName: r.holder_name || r.their_label || r.display_label || r.holderName || "Connected Holder",
+          holderDid: r.holder_did || item?.holder_did || r.their_did || item?.their_did || r.connection_id || item?.connection_id || r.holderDid || "Edge Holder",
+          holderName: item?.contact_label || item?.display_name || r.holder_name || item?.holder_name || r.their_label || r.display_label || r.holderName || "Connected Holder",
           attributes: attrsObj,
           attrs: attrsObj,
           claims: attrsObj,
           raw_attributes: attrsObj,
           status,
-          state: r.state || cleanState,
+          state: r.state || item?.state || cleanState,
+          displayStatus: isRevoked ? "Revoked" : isRejected ? "Rejected" : isAccepted ? "Accepted" : "Pending",
+          errorMsg,
+          error_msg: errorMsg,
           revoked: isRevoked,
-          revocationStatus: isRevoked ? "revoked" : "active",
+          revocationStatus: isRevoked ? "revoked" : isRejected ? "rejected" : isAccepted ? "active" : "pending",
           issuedAt: issueDate,
           created_at: issueDate,
           issuanceDate: issueDate,
-          raw: r,
+          raw: item,
         };
       });
 
@@ -711,6 +853,16 @@ export const issuerService = {
     } catch (err) {
       console.warn("Failed to fetch live issuance records:", err);
       return { success: true, data: [] };
+    }
+  },
+
+  getCredentialRecord: async (credExId) => {
+    try {
+      const res = await issuerApi.getCredentialRecord(credExId);
+      return res;
+    } catch (err) {
+      console.warn(`Failed to fetch credential record ${credExId}:`, err);
+      return null;
     }
   },
 
@@ -773,7 +925,44 @@ export const issuerService = {
       supportRevocation: supportRev,
     };
     const res = await apiClient.post(ENDPOINTS.ISSUER.CREDENTIAL_DEFINITIONS, fullPayload);
-    return res.data;
+    let result = res.data;
+    const credDefId =
+      result?.credential_definition_id ||
+      result?.data?.credential_definition_id ||
+      result?.cred_def_id ||
+      result?.data?.cred_def_id;
+    const schemaId =
+      result?.schema_id ||
+      result?.data?.schema_id ||
+      result?.id ||
+      result?.data?.id;
+
+    if (!credDefId && schemaId) {
+      try {
+        const cdRes = await issuerApi.createCredDef({
+          schema_id: schemaId,
+          schemaId: schemaId,
+          schema_name: name,
+          schemaName: name,
+          schema_version: version,
+          schemaVersion: version,
+          attributes: attrs,
+          requiredHolderAttributes: fullPayload.requiredHolderAttributes,
+          issuanceMode: "AUTO_ISSUE",
+          tag,
+          support_revocation: supportRev,
+          supportRevocation: supportRev,
+          revocation_registry_size: 1000,
+          revocationRegistrySize: 1000,
+        });
+        if (cdRes?.data || cdRes?.credential_definition_id || cdRes?.id) {
+          result = { ...result, ...(cdRes.data || cdRes) };
+        }
+      } catch (err) {
+        console.warn("Auto-publish cred def fallback in createSchemaAndCredDef:", err?.message || err);
+      }
+    }
+    return result;
   },
 
   issueCredential: async (credentialDefId, holderDidOrConnId, attributes, schemaDetails = {}) => {
