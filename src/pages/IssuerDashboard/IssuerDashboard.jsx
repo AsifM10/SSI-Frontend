@@ -22,6 +22,7 @@ import {
   Steps,
   Alert,
   Descriptions,
+  Spin,
 } from "antd";
 import {
   AuditOutlined,
@@ -51,12 +52,17 @@ import {
   ApartmentOutlined,
   GlobalOutlined,
   FieldStringOutlined,
+  SyncOutlined,
 } from "@ant-design/icons";
 import DashboardLayout from "../../layouts/DashboardLayout/DashboardLayout";
 import StatCard from "../../components/cards/StatCard/StatCard";
 import ConnectionModal from "../../components/modals/ConnectionModal/ConnectionModal";
 import ViewTemplateModal from "../../components/modals/ViewTemplateModal/ViewTemplateModal";
 import CredentialDetailsModal from "../../components/modals/CredentialDetailsModal/CredentialDetailsModal";
+import BatchIssueModal from "../../components/modals/BatchIssueModal/BatchIssueModal";
+import RevocationManagementModal from "../../components/modals/RevocationManagementModal/RevocationManagementModal";
+import IntakePreviewModal from "../../components/modals/IntakePreviewModal/IntakePreviewModal";
+import { issuerApi } from "../../services/api/index.js";
 import { issuerService, buildRequiredHolderAttributes } from "../../services/apiClient";
 import "./IssuerDashboard.css";
 import "../../components/modals/ViewTemplateModal/ViewTemplateModal.css";
@@ -90,6 +96,9 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
   // Inspection modals
   const [selectedSchemaForView, setSelectedSchemaForView] = useState(null);
   const [selectedCredentialForView, setSelectedCredentialForView] = useState(null);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [isRevocationModalOpen, setIsRevocationModalOpen] = useState(false);
+  const [selectedIntakeSchema, setSelectedIntakeSchema] = useState(null);
 
   // Schema form & wizard state
   const [schemaCreationStep, setSchemaCreationStep] = useState(0);
@@ -1301,6 +1310,9 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
             <Button size="small" icon={<EyeOutlined />} onClick={() => setSelectedSchemaForView(record)}>
               View Template
             </Button>
+            <Button size="small" icon={<FileTextOutlined />} onClick={() => setSelectedIntakeSchema(record)}>
+              Intake Form
+            </Button>
             {!matching && !credDefId && (
               <Button
                 size="small"
@@ -1771,6 +1783,18 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
                             allowClear
                           />
                           <Button
+                            icon={<DeploymentUnitOutlined />}
+                            onClick={() => setIsBatchModalOpen(true)}
+                          >
+                            Batch Issue
+                          </Button>
+                          <Button
+                            icon={<SafetyCertificateOutlined />}
+                            onClick={() => setIsRevocationModalOpen(true)}
+                          >
+                            Revocation Registries
+                          </Button>
+                          <Button
                             type="primary"
                             icon={<PlusOutlined />}
                             onClick={handleOpenIssueModal}
@@ -1885,7 +1909,7 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
                   <a
                     onClick={() => {
                       setIsIssueModalOpen(false);
-                      setActiveTab("schemas");
+                      navigate("/issuer-schemas");
                     }}
                     style={{ fontWeight: 600, textDecoration: "underline" }}
                   >
@@ -2468,6 +2492,27 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
             </p>
           </div>
         </Modal>
+
+        {/* Phase 6 Enhancements: Batch Issuance, Revocation Management & Intake Preview */}
+        <BatchIssueModal
+          visible={isBatchModalOpen}
+          onClose={() => setIsBatchModalOpen(false)}
+          credDefs={credDefs}
+          connections={connections}
+          onSuccess={loadData}
+        />
+
+        <RevocationManagementModal
+          visible={isRevocationModalOpen}
+          onClose={() => setIsRevocationModalOpen(false)}
+          credDefs={credDefs}
+        />
+
+        <IntakePreviewModal
+          visible={!!selectedIntakeSchema}
+          onClose={() => setSelectedIntakeSchema(null)}
+          schema={selectedIntakeSchema}
+        />
       </div>
     </DashboardLayout>
   );

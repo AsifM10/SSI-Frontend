@@ -10,12 +10,16 @@ import {
   AuditOutlined,
   WalletOutlined,
   BankOutlined,
+  MessageOutlined,
+  CompassOutlined,
+  BellOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import "./Sidebar.css";
 
-const Sidebar = ({ collapsed, role }) => {
+const Sidebar = ({ collapsed, role, onNavClick }) => {
   const { user } = useAuth();
 
   const currentRole = role || user?.role || "issuer";
@@ -96,6 +100,21 @@ const Sidebar = ({ collapsed, role }) => {
     });
   }
 
+  // Shared Communication & Ecosystem Navigation
+  const ecosystemItems = [
+    { key: "messages", path: "/messages", icon: MessageOutlined, label: "Messages" },
+    ...(isHolder || isVerifier
+      ? [{ key: "directory", path: "/directory", icon: CompassOutlined, label: "Issuer Directory" }]
+      : []),
+    { key: "notifications", path: "/notifications", icon: BellOutlined, label: "Notifications" },
+    { key: "profile", path: "/profile", icon: UserOutlined, label: "My Profile" },
+  ];
+
+  navigationSections.push({
+    title: "Ecosystem & Comms",
+    items: ecosystemItems,
+  });
+
   return (
     <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
       <div className="sidebar-top">
@@ -125,6 +144,7 @@ const Sidebar = ({ collapsed, role }) => {
                 <NavLink
                   key={item.key}
                   to={item.path}
+                  onClick={onNavClick}
                   className={({ isActive }) =>
                     `sidebar-menu-item ${isActive ? "active" : ""}`
                   }

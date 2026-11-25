@@ -11,3 +11,6 @@ export { default as holderApi } from './holder.api';
 export { default as verifierApi } from './verifier.api';
 export { default as connectionsApi } from './connections.api';
 export { default as profileApi } from './profile.api';
+export { default as notificationsApi } from './notifications.api';
+export { default as messagingApi } from './messaging.api';
+export { default as directoryApi } from './directory.api';

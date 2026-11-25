@@ -8,6 +8,12 @@ import IssuerDashboard from "../pages/IssuerDashboard/IssuerDashboard";
 import HolderDashboard from "../pages/HolderDashboard/HolderDashboard";
 import VerifierDashboard from "../pages/VerifierDashboard/VerifierDashboard";
 import AdminDashboard from "../pages/AdminDashboard/AdminDashboard";
+import ProfilePage from "../pages/Profile/ProfilePage";
+import NotificationsPage from "../pages/Notifications/NotificationsPage";
+import MessagesPage from "../pages/Messages/MessagesPage";
+import DirectoryPage from "../pages/Directory/DirectoryPage";
+
+const ALL_ROLES = ["issuer", "holder", "verifier", "admin"];
 
 export default function AppRoutes() {
   return (
@@ -35,6 +41,42 @@ export default function AppRoutes() {
         <Route path="/register/holder" element={<LoginPage key="reg-holder" initialMode="register" role="holder" />} />
         <Route path="/register/verifier" element={<LoginPage key="reg-verifier" initialMode="register" role="verifier" />} />
         <Route path="/register/:role" element={<LoginPage initialMode="register" />} />
+
+        {/* ========================= */}
+        {/* Shared Authenticated      */}
+        {/* ========================= */}
+        <Route
+          path="/profile"
+          element={
+            <RoleGuard allowedRoles={ALL_ROLES}>
+              <ProfilePage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <RoleGuard allowedRoles={ALL_ROLES}>
+              <NotificationsPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/messages"
+          element={
+            <RoleGuard allowedRoles={ALL_ROLES}>
+              <MessagesPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/directory"
+          element={
+            <RoleGuard allowedRoles={["holder", "verifier"]}>
+              <DirectoryPage />
+            </RoleGuard>
+          }
+        />
 
         {/* ========================= */}
         {/* Issuer Role Routes        */}

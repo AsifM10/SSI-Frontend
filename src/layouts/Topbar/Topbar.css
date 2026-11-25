@@ -23,7 +23,8 @@
   align-items: center;
   gap: 12px;
   min-width: 0;
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
 }
 
 .topbar-title-accent {
@@ -35,6 +36,11 @@
   flex-shrink: 0;
 }
 
+.topbar-title-text {
+  min-width: 0;
+  overflow: hidden;
+}
+
 .topbar-title-text h1 {
   font-size: 17px;
   font-weight: 700;
@@ -42,6 +48,9 @@
   margin: 0;
   letter-spacing: -0.3px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 420px;
 }
 
 .topbar-breadcrumb {
@@ -329,14 +338,178 @@
   background: var(--danger-bg);
 }
 
+.topbar-mobile-menu-btn {
+  display: none;
+}
+
+.topbar-custom-actions {
+  display: flex;
+  align-items: center;
+}
+
+@media screen and (max-width: 1400px) {
+  .topbar-node-badge {
+    display: none !important;
+  }
+
+  .topbar-search-container {
+    max-width: 220px;
+  }
+
+  .topbar-title-text h1 {
+    max-width: 300px;
+  }
+}
+
+@media screen and (max-width: 1100px) {
+  .topbar-search-container {
+    max-width: 160px;
+  }
+
+  .topbar-role-tag {
+    display: none !important;
+  }
+
+  .topbar-title-text h1 {
+    max-width: 240px;
+  }
+}
+
 @media screen and (max-width: 992px) {
   .topbar-search-container {
-    display: none;
+    display: none !important;
+  }
+
+  .topbar-custom-actions {
+    display: none !important;
+  }
+
+  .topbar-profile-name,
+  .topbar-arrow {
+    display: none !important;
+  }
+
+  .topbar-title-text h1 {
+    max-width: 260px;
   }
 }
 
 @media screen and (max-width: 768px) {
-  .topbar-node-badge {
+  .topbar {
+    padding: 8px 10px;
+    gap: 8px;
+    border-radius: 12px;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .topbar-mobile-menu-btn {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--surface-2);
+    color: var(--text-primary);
+    font-size: 15px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+
+  .topbar-mobile-menu-btn:hover {
+    background: var(--hover-bg);
+    border-color: var(--primary-color);
+  }
+
+  .topbar-title {
+    gap: 8px;
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  .topbar-title-accent {
+    height: 18px;
+    width: 3px;
+  }
+
+  .topbar-title-text {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .topbar-title-text h1 {
+    font-size: 14px;
+    max-width: calc(100vw - 190px) !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .topbar-breadcrumb {
     display: none;
+  }
+
+  .topbar-actions {
+    gap: 6px;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  .topbar-role-tag {
+    display: none !important;
+  }
+
+  .topbar-icon-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .topbar-profile-btn {
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    gap: 0 !important;
+  }
+
+  .topbar-profile-btn .ant-avatar {
+    width: 32px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+  }
+
+  .topbar-profile-name,
+  .topbar-arrow {
+    display: none !important;
+  }
+
+  .topbar-node-badge {
+    display: none !important;
+  }
+
+  .topbar-custom-actions {
+    display: none !important;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .topbar {
+    padding: 6px 8px;
+    gap: 4px;
+  }
+
+  .topbar-title-text h1 {
+    font-size: 13px;
+    max-width: calc(100vw - 170px) !important;
+  }
+
+  .topbar-actions {
+    gap: 4px;
   }
 }

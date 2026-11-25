@@ -20,7 +20,6 @@ import {
   MailOutlined,
   PhoneOutlined,
   CalendarOutlined,
-  AuditOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
 import TrustDiagram from "../Home/TrustDiagram";
@@ -179,7 +178,6 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
 
   // Sync state when activeRole changes
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm({
       username: "",
       password: "",
@@ -298,10 +296,22 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
     return () => clearInterval(timer);
   }, [resetState.resendCooldown]);
 
-  // Session check - redirect if already logged in to this active role
+  // Session check - enforce single-portal exclusivity
   useEffect(() => {
-    if (user && user.role === activeRole) {
-      navigate(`/${activeRole}-dashboard`, { replace: true });
+    if (user && user.role) {
+      const userRole = user.role.toLowerCase();
+      const currentPortalRole = activeRole.toLowerCase();
+
+      if (userRole === currentPortalRole) {
+        navigate(`/${userRole}-dashboard`, { replace: true });
+      } else {
+        message.warning({
+          content: `Active session detected as ${user.role}. Please log out before switching portals.`,
+          key: "portal-session-warning",
+          duration: 4,
+        });
+        navigate(`/${userRole}-dashboard`, { replace: true });
+      }
     }
   }, [user, activeRole, navigate]);
 
@@ -369,13 +379,41 @@ const LoginPage = ({ role: propRole, initialMode = "login" }) => {
     setIsSubmitting(true);
 
     try {
-      const result = await login(form);
+      const result = await login({
+        ...form,
+        role: activeRole,
+      });
+
       const userRole = result?.user?.role || activeRole;
+
+      // Client-side defense-in-depth: assert that authenticated role matches active portal
+      if (userRole && userRole.toLowerCase() !== activeRole.toLowerCase()) {
+        await logout();
+        const roleLabels = {
+          issuer: "Credential Issuer",
+          holder: "Digital Wallet Holder",
+          verifier: "Verifier Authority",
+          admin: "System Administrator",
+        };
+        const regLabel = roleLabels[userRole.toLowerCase()] || userRole;
+        setLoginError(
+          `Unauthorized Portal: This account is registered as a ${regLabel}. Please log in via the ${regLabel} portal.`
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
       navigate(`/${userRole}-dashboard`, { replace: true });
     } catch (err) {
       const errStr = typeof err === "string" ? err : err.message || "Login failed. Please check credentials.";
       const lower = errStr.toLowerCase();
       if (
+        lower.includes("unauthorized portal") ||
+        lower.includes("role_mismatch") ||
+        lower.includes("registered as")
+      ) {
+        setLoginError(errStr);
+      } else if (
         lower.includes("identity verification") ||
         lower.includes("verify their email") ||
         lower.includes("verification is still pending") ||
