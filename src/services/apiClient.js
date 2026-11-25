@@ -124,7 +124,7 @@ export const buildRequiredHolderAttributes = (attributes) => {
   if (!Array.isArray(attributes) || attributes.length === 0) return [];
 
   return attributes.map((attr) => {
-    let name = "";
+    let name;
     let label = "";
     let type = "string";
     let required = true;
@@ -1036,9 +1036,9 @@ export const issuerService = {
   },
 
   revokeCredential: async (recordOrId, reason) => {
-    let credRevId = "1";
+    let credRevId;
     let revRegId = "";
-    let credExId = "";
+    let credExId;
     let connectionId = "";
 
     if (typeof recordOrId === "object" && recordOrId !== null) {

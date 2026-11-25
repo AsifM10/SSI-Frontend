@@ -22,6 +22,7 @@ import {
   Steps,
   Alert,
   Descriptions,
+  Spin,
 } from "antd";
 import {
   AuditOutlined,
@@ -51,12 +52,14 @@ import {
   ApartmentOutlined,
   GlobalOutlined,
   FieldStringOutlined,
+  SyncOutlined,
 } from "@ant-design/icons";
 import DashboardLayout from "../../layouts/DashboardLayout/DashboardLayout";
 import StatCard from "../../components/cards/StatCard/StatCard";
 import ConnectionModal from "../../components/modals/ConnectionModal/ConnectionModal";
 import ViewTemplateModal from "../../components/modals/ViewTemplateModal/ViewTemplateModal";
 import CredentialDetailsModal from "../../components/modals/CredentialDetailsModal/CredentialDetailsModal";
+import { issuerApi } from "../../services/api/index.js";
 import { issuerService, buildRequiredHolderAttributes } from "../../services/apiClient";
 import "./IssuerDashboard.css";
 import "../../components/modals/ViewTemplateModal/ViewTemplateModal.css";
@@ -1885,7 +1888,7 @@ const IssuerDashboard = ({ activeTab = "dashboard" }) => {
                   <a
                     onClick={() => {
                       setIsIssueModalOpen(false);
-                      setActiveTab("schemas");
+                      navigate("/issuer-schemas");
                     }}
                     style={{ fontWeight: 600, textDecoration: "underline" }}
                   >

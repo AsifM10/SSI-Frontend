@@ -6,10 +6,12 @@ import {
 import Sidebar from "../Sidebar/Sidebar";
 import Topbar from "../Topbar/Topbar";
 import { BreadcrumbProvider } from "../../context/BreadcrumbContext";
+import { useWebSocket } from "../../hooks/useWebSocket";
 import "./DashboardLayout.css";
 
 const DashboardLayout = ({ children, title = "SSI Dashboard", role, actions, breadcrumb }) => {
   const [collapsed, setCollapsed] = useState(false);
+  useWebSocket();
 
   const toggle = () => setCollapsed((prev) => !prev);
 

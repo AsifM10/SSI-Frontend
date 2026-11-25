@@ -1,0 +1,72 @@
+.directory-page-container {
+  padding: 24px;
+}
+
+.directory-header {
+  margin-bottom: 24px;
+}
+
+.directory-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 8px;
+}
+
+.directory-header p {
+  color: #64748b;
+  margin-bottom: 16px;
+}
+
+.directory-search-bar {
+  max-width: 500px;
+}
+
+.directory-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.directory-issuer-card {
+  border-radius: 8px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.directory-issuer-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.directory-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.directory-card-title {
+  font-weight: 700;
+  font-size: 16px;
+  color: #1e293b;
+}
+
+.directory-card-did {
+  font-size: 11px;
+  color: #94a3b8;
+  font-family: monospace;
+  word-break: break-all;
+}
+
+.directory-schemas-list {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.directory-schema-item {
+  display: inline-block;
+  margin-bottom: 6px;
+  margin-right: 6px;
+}

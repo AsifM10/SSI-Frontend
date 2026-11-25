@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { Avatar, Badge } from "antd";
+import { Avatar } from "antd";
 import {
   UserOutlined,
   LogoutOutlined,
@@ -11,11 +11,11 @@ import {
   SunOutlined,
   DownOutlined,
   SearchOutlined,
-  BellOutlined,
   LockOutlined,
 } from "@ant-design/icons";
 import { useTheme } from "../../context/ThemeContext";
 import ChangePasswordModal from "../../components/modals/ChangePasswordModal/ChangePasswordModal";
+import NotificationBell from "../../components/NotificationBell/NotificationBell";
 import "./Topbar.css";
 
 const Topbar = ({ title, role, actions, breadcrumb }) => {
@@ -62,14 +62,6 @@ const Topbar = ({ title, role, actions, breadcrumb }) => {
       setNotifOpen(false);
     }
     setProfileOpen((prev) => !prev);
-  };
-
-  const toggleNotif = () => {
-    if (!notifOpen) {
-      updateNotifPos();
-      setProfileOpen(false);
-    }
-    setNotifOpen((prev) => !prev);
   };
 
   // Close when clicking outside
@@ -186,17 +178,7 @@ const Topbar = ({ title, role, actions, breadcrumb }) => {
         </button>
 
         {/* Notification Bell */}
-        <div className="topbar-notif-wrapper" ref={notifBtnRef}>
-          <button
-            className="topbar-icon-btn"
-            onClick={toggleNotif}
-            title="System Notifications"
-          >
-            <Badge dot count={notifications.length} offset={[-3, 3]}>
-              <BellOutlined style={{ fontSize: 16 }} />
-            </Badge>
-          </button>
-        </div>
+        <NotificationBell />
 
         {/* Profile Button */}
         <div className="topbar-profile-wrapper" ref={profileBtnRef}>
@@ -281,6 +263,15 @@ const Topbar = ({ title, role, actions, breadcrumb }) => {
               </div>
             </div>
             <div className="dropdown-divider" />
+            <button
+              className="topbar-dropdown-item"
+              onClick={() => {
+                setProfileOpen(false);
+                navigate("/profile");
+              }}
+            >
+              <UserOutlined /> My Profile
+            </button>
             <button
               className="topbar-dropdown-item"
               onClick={() => {
