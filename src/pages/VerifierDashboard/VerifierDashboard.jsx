@@ -447,20 +447,7 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
     <div
       onClick={handleCopyDID}
       title="Click to copy Verifier DID"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "4px 12px",
-        borderRadius: 20,
-        background: "var(--surface-2, #f8fafc)",
-        border: "1px solid var(--border-color, #e2e8f0)",
-        fontSize: 12,
-        fontWeight: 600,
-        color: "var(--text-primary)",
-        cursor: "pointer",
-        transition: "all 0.2s ease",
-      }}
+      className="verifier-topbar-did-badge"
     >
       <SafetyCertificateOutlined style={{ color: "#2563EB" }} />
       <span>DID: {currentVerifierDID.slice(0, 15)}...</span>
@@ -910,30 +897,17 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
             </div>
 
             {/* Verifier Identity Bar & Quick Workflow Guide */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "12px 20px",
-                background: "var(--surface-1, #ffffff)",
-                border: "1px solid var(--border-color, #e2e8f0)",
-                borderRadius: 12,
-                fontSize: 13,
-                flexWrap: "wrap",
-                gap: 12,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <SafetyCertificateOutlined style={{ color: "#2563EB", fontSize: 20 }} />
-                <div>
-                  <span style={{ fontSize: 11, textTransform: "uppercase", fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.5px" }}>
+            <div className="verifier-did-banner">
+              <div className="verifier-did-banner-left">
+                <SafetyCertificateOutlined style={{ color: "#2563EB", fontSize: 20, flexShrink: 0 }} />
+                <div className="verifier-did-info">
+                  <span className="verifier-did-label">
                     Active Verifier Node (DID):
                   </span>{" "}
-                  <code style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{currentVerifierDID}</code>
+                  <code className="verifier-did-code">{currentVerifierDID}</code>
                 </div>
               </div>
-              <Space size="middle">
+              <div className="verifier-did-banner-actions">
                 <Button size="small" icon={<CopyOutlined />} onClick={handleCopyDID}>
                   Copy DID
                 </Button>
@@ -945,7 +919,7 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
                 >
                   How Verification Works
                 </Button>
-              </Space>
+              </div>
             </div>
 
             {/* VERIFICATION STATUS & PENDING WORK SECTION (Replaces Technical Cards) */}
@@ -1177,7 +1151,7 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
                 placeholder="Filter by ID, holder, or title..."
                 value={searchFilter}
                 onChange={(e) => setSearchFilter(e.target.value)}
-                style={{ width: 260 }}
+                className="verifier-table-search-input"
                 allowClear
               />
             </div>
@@ -1253,7 +1227,7 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
                 placeholder="Search history by holder, title, ID..."
                 value={historySearch}
                 onChange={(e) => setHistorySearch(e.target.value)}
-                style={{ width: 280 }}
+                className="verifier-table-search-input"
                 allowClear
               />
             </div>
@@ -1301,7 +1275,7 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
                 placeholder="Search holder connections..."
                 value={connectionSearch}
                 onChange={(e) => setConnectionSearch(e.target.value)}
-                style={{ width: 280 }}
+                className="verifier-table-search-input"
                 allowClear
               />
             </div>

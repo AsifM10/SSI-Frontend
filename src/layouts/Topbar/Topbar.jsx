@@ -139,7 +139,7 @@ const Topbar = ({ title, role, actions, breadcrumb, onOpenMobileMenu }) => {
         <span className="topbar-title-accent" />
         <div className="topbar-title-text">
           {breadcrumb && <div className="topbar-breadcrumb">{breadcrumb}</div>}
-          <h1>{title}</h1>
+          <h1 title={title}>{title}</h1>
         </div>
       </div>
 
