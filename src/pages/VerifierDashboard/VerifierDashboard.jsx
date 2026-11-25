@@ -42,10 +42,14 @@ import {
   CopyOutlined,
   QuestionCircleOutlined,
   SendOutlined,
+  SyncOutlined,
+  LoadingOutlined,
 } from "@ant-design/icons";
 import DashboardLayout from "../../layouts/DashboardLayout/DashboardLayout";
 import StatCard from "../../components/cards/StatCard/StatCard";
 import ConnectionModal from "../../components/modals/ConnectionModal/ConnectionModal";
+import ProofTemplatesModal from "../../components/modals/ProofTemplatesModal/ProofTemplatesModal";
+import { verifierApi } from "../../services/api/index.js";
 import { verifierService } from "../../services/apiClient";
 import "./VerifierDashboard.css";
 
@@ -130,6 +134,10 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
   const [isConnectionModalOpen, setIsConnectionModalOpen] = useState(false);
   const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
   const [selectedRecordForDetails, setSelectedRecordForDetails] = useState(null);
+  const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false);
+  const [decodedClaimsData, setDecodedClaimsData] = useState(null);
+  const [loadingClaims, setLoadingClaims] = useState(false);
+  const [waitingResult, setWaitingResult] = useState(false);
 
   // Request form state
   const [requestForm] = Form.useForm();
@@ -332,6 +340,36 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
       loadData();
     } catch {
       message.error("Failed to delete record");
+    }
+  };
+
+  const handleFetchClaims = async (exchangeId) => {
+    setLoadingClaims(true);
+    try {
+      const res = await verifierApi.getVerificationClaims(exchangeId);
+      setDecodedClaimsData(res?.data || res);
+      message.success("Decoded claims and predicates extracted successfully!");
+    } catch (err) {
+      message.error(err?.message || "Failed to extract decoded claims");
+    } finally {
+      setLoadingClaims(false);
+    }
+  };
+
+  const handleWaitResult = async (exchangeId) => {
+    setWaitingResult(true);
+    try {
+      message.loading({ content: "Polling backend for holder presentation...", key: "wait-poll", duration: 15 });
+      const res = await verifierApi.waitVerificationResult(exchangeId);
+      message.success({ content: "Presentation received from holder!", key: "wait-poll" });
+      await loadData();
+      if (res?.data) {
+        setSelectedRecordForDetails(res.data);
+      }
+    } catch {
+      message.info({ content: "Waiting timed out or still pending holder action.", key: "wait-poll" });
+    } finally {
+      setWaitingResult(false);
     }
   };
 
@@ -1076,14 +1114,22 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
                   Dispatch proof inquiries, inspect incoming credential presentations, and validate cryptographic proofs.
                 </p>
               </div>
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => handleOpenCreateRequest()}
-                style={{ background: "#1B365D", borderColor: "#1B365D" }}
-              >
-                Dispatch Proof Request
-              </Button>
+              <Space>
+                <Button
+                  icon={<FileProtectOutlined />}
+                  onClick={() => setIsTemplatesModalOpen(true)}
+                >
+                  Proof Templates
+                </Button>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => handleOpenCreateRequest()}
+                  style={{ background: "#1B365D", borderColor: "#1B365D" }}
+                >
+                  Dispatch Proof Request
+                </Button>
+              </Space>
             </div>
 
             {/* Filter toolbar */}
@@ -1500,8 +1546,38 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
             </div>
           }
           open={!!selectedRecordForDetails}
-          onCancel={() => setSelectedRecordForDetails(null)}
+          onCancel={() => {
+            setSelectedRecordForDetails(null);
+            setDecodedClaimsData(null);
+          }}
           footer={[
+            selectedRecordForDetails?.state !== "verified" &&
+              selectedRecordForDetails?.state !== "abandoned" && (
+                <Button
+                  key="wait"
+                  icon={<LoadingOutlined />}
+                  loading={waitingResult}
+                  onClick={() => {
+                    handleWaitResult(
+                      selectedRecordForDetails.presentation_exchange_id || selectedRecordForDetails.id
+                    );
+                  }}
+                >
+                  Wait for Result (Live Poll)
+                </Button>
+              ),
+            <Button
+              key="claims"
+              icon={<SyncOutlined />}
+              loading={loadingClaims}
+              onClick={() => {
+                handleFetchClaims(
+                  selectedRecordForDetails.presentation_exchange_id || selectedRecordForDetails.id
+                );
+              }}
+            >
+              Decode Claims via Engine
+            </Button>,
             selectedRecordForDetails?.state === "presentation_received" && (
               <Button
                 key="verify"
@@ -1527,7 +1603,13 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
                 Reject
               </Button>
             ),
-            <Button key="close" onClick={() => setSelectedRecordForDetails(null)}>
+            <Button
+              key="close"
+              onClick={() => {
+                setSelectedRecordForDetails(null);
+                setDecodedClaimsData(null);
+              }}
+            >
               Close
             </Button>,
           ].filter(Boolean)}
@@ -1661,6 +1743,64 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
                 )}
               </Card>
 
+              {/* Decoded Claims via Engine Extractor */}
+              {decodedClaimsData && (
+                <Card
+                  size="small"
+                  style={{ borderColor: "#10b981", background: "#f0fdf4" }}
+                  title={
+                    <span style={{ color: "#15803d", fontWeight: 700 }}>
+                      ✓ Decoded Claims & ZK Assertions (via Engine Extractor)
+                    </span>
+                  }
+                >
+                  {decodedClaimsData.revealed_claims &&
+                    Object.keys(decodedClaimsData.revealed_claims).length > 0 && (
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: "#166534" }}>
+                          Disclosed Claims:
+                        </div>
+                        {Object.entries(decodedClaimsData.revealed_claims).map(([k, v]) => (
+                          <div
+                            key={k}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              padding: "4px 0",
+                              borderBottom: "1px dashed #bbf7d0",
+                            }}
+                          >
+                            <span style={{ fontWeight: 500 }}>{k}</span>
+                            <Tag color="green">{String(v)}</Tag>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                  {decodedClaimsData.satisfied_predicates &&
+                    Object.keys(decodedClaimsData.satisfied_predicates).length > 0 && (
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: "#166534" }}>
+                          Satisfied Zero-Knowledge Predicates:
+                        </div>
+                        {Object.entries(decodedClaimsData.satisfied_predicates).map(([k, v]) => (
+                          <div
+                            key={k}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              padding: "4px 0",
+                            }}
+                          >
+                            <span style={{ fontWeight: 500 }}>{k}</span>
+                            <Tag color="purple">{String(v)}</Tag>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </Card>
+              )}
+
               {/* Predicate Proofs */}
               {selectedRecordForDetails.presentation?.requested_proof?.predicates &&
                 Object.keys(selectedRecordForDetails.presentation.requested_proof.predicates).length > 0 && (
@@ -1688,6 +1828,64 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
                     ))}
                   </Card>
                 )}
+
+              {/* Decoded Claims via Engine Extractor */}
+              {decodedClaimsData && (
+                <Card
+                  size="small"
+                  style={{ borderColor: "#10b981", background: "#f0fdf4" }}
+                  title={
+                    <span style={{ color: "#15803d", fontWeight: 700 }}>
+                      ✓ Decoded Claims & ZK Assertions (via Engine Extractor)
+                    </span>
+                  }
+                >
+                  {decodedClaimsData.revealed_claims &&
+                    Object.keys(decodedClaimsData.revealed_claims).length > 0 && (
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: "#166534" }}>
+                          Disclosed Claims:
+                        </div>
+                        {Object.entries(decodedClaimsData.revealed_claims).map(([k, v]) => (
+                          <div
+                            key={k}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              padding: "4px 0",
+                              borderBottom: "1px dashed #bbf7d0",
+                            }}
+                          >
+                            <span style={{ fontWeight: 500 }}>{k}</span>
+                            <Tag color="green">{String(v)}</Tag>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                  {decodedClaimsData.satisfied_predicates &&
+                    Object.keys(decodedClaimsData.satisfied_predicates).length > 0 && (
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: "#166534" }}>
+                          Satisfied Zero-Knowledge Predicates:
+                        </div>
+                        {Object.entries(decodedClaimsData.satisfied_predicates).map(([k, v]) => (
+                          <div
+                            key={k}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              padding: "4px 0",
+                            }}
+                          >
+                            <span style={{ fontWeight: 500 }}>{k}</span>
+                            <Tag color="purple">{String(v)}</Tag>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </Card>
+              )}
 
               {/* Cryptographic Checks Breakdown */}
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1832,6 +2030,16 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
           onCreateInvitation={verifierService.createInvitation}
           onReceiveInvitation={verifierService.receiveInvitation}
           role="verifier"
+        />
+
+        {/* ========================================================= */}
+        {/* MODAL 5: PROOF TEMPLATES MANAGER                          */}
+        {/* ========================================================= */}
+        <ProofTemplatesModal
+          visible={isTemplatesModalOpen}
+          onClose={() => setIsTemplatesModalOpen(false)}
+          connections={connections}
+          onRequestSent={loadData}
         />
       </div>
     </DashboardLayout>

@@ -86,6 +86,11 @@ export const issuerApi = {
     return res.data;
   },
 
+  async issueCredentialBatch(payload) {
+    const res = await apiClient.post(ENDPOINTS.ISSUER.ISSUE_CREDENTIAL_BATCH, payload);
+    return res.data;
+  },
+
   async sendCredentialOffer(payload) {
     const res = await apiClient.post(ENDPOINTS.ISSUER.ISSUE_CREDENTIAL_20_SEND_OFFER, payload);
     return res.data;
@@ -157,6 +162,16 @@ export const issuerApi = {
   // 5. Onboarding QR Campaigns
   async createOnboardingQr(payload) {
     const res = await apiClient.post(ENDPOINTS.ISSUER.QR_CONNECTION, payload);
+    return res.data;
+  },
+
+  async createCredentialOfferQr(payload) {
+    const res = await apiClient.post(ENDPOINTS.ISSUER.QR_CREDENTIAL_OFFER, payload);
+    return res.data;
+  },
+
+  async getSchemaIntakeForm(schemaId) {
+    const res = await apiClient.get(ENDPOINTS.ISSUER.INTAKE_FORM(schemaId));
     return res.data;
   },
 

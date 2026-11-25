@@ -1,0 +1,43 @@
+.proof-templates-modal {
+  width: 760px !important;
+}
+
+.template-card-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 12px;
+  background: #ffffff;
+  transition: all 0.2s;
+}
+
+.template-card-item:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.template-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.template-card-title {
+  font-weight: 700;
+  font-size: 15px;
+  color: #1e293b;
+}
+
+.template-card-desc {
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 10px;
+}
+
+.template-attributes-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}

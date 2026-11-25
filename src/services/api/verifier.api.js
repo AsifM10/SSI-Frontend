@@ -59,10 +59,46 @@ export const verifierApi = {
     return res.data;
   },
 
+  async getVerificationClaims(id) {
+    const res = await apiClient.get(ENDPOINTS.VERIFIER.VERIFICATION_CLAIMS(id));
+    return res.data;
+  },
+
+  async waitVerificationResult(id) {
+    const res = await apiClient.get(ENDPOINTS.VERIFIER.VERIFICATION_WAIT_RESULT(id));
+    return res.data;
+  },
+
   // 2. Proof Verification
   async verifyPresentation(presExId) {
-    // If verifier needs to trigger explicit verification check
-    return this.getVerificationStatus(presExId);
+    const res = await apiClient.post(ENDPOINTS.VERIFIER.VERIFICATION_VERIFY(presExId));
+    return res.data;
+  },
+
+  // 2.5 Proof Templates
+  async getProofTemplates() {
+    const res = await apiClient.get(ENDPOINTS.VERIFIER.PROOF_TEMPLATES);
+    return res.data;
+  },
+
+  async createProofTemplate(payload) {
+    const res = await apiClient.post(ENDPOINTS.VERIFIER.PROOF_TEMPLATES, payload);
+    return res.data;
+  },
+
+  async getProofTemplate(id) {
+    const res = await apiClient.get(ENDPOINTS.VERIFIER.PROOF_TEMPLATE_ITEM(id));
+    return res.data;
+  },
+
+  async deleteProofTemplate(id) {
+    const res = await apiClient.delete(ENDPOINTS.VERIFIER.PROOF_TEMPLATE_ITEM(id));
+    return res.data;
+  },
+
+  async requestProofFromTemplate(id, payload = {}) {
+    const res = await apiClient.post(ENDPOINTS.VERIFIER.PROOF_TEMPLATE_REQUEST(id), payload);
+    return res.data;
   },
 
   // 3. Multi-Use Verification QR Campaigns
