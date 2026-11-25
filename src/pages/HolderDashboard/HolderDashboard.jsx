@@ -575,11 +575,11 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
 
             {/* Holder Identity DID Banner */}
             <div className="holder-did-banner">
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div className="holder-did-banner-left">
                 <div className="did-shield-icon">
                   <SafetyCertificateOutlined />
                 </div>
-                <div>
+                <div style={{ minWidth: 0, flex: 1 }}>
                   <div className="did-banner-label">HOLDER IDENTITY (DID)</div>
                   <code className="did-banner-code">{holderDid}</code>
                 </div>
@@ -746,7 +746,7 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
         {/* ========================================================= */}
         {activeTab === "credentials" && (
           <div className="content-card animate-in-d1">
-            <div className="issuance-subtab-toolbar" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <div className="issuance-subtab-toolbar">
               <div>
                 <h2 className="issuance-subtab-title">My Credentials ({credentials.length})</h2>
                 <p className="issuance-subtab-desc">
@@ -758,7 +758,7 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
                 placeholder="Search credentials or issuers..."
                 value={filterQuery}
                 onChange={(e) => setFilterQuery(e.target.value)}
-                style={{ width: 260 }}
+                className="holder-toolbar-search"
                 allowClear
               />
             </div>
@@ -809,6 +809,8 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
               </h3>
               <Table
                 dataSource={filteredCredentials}
+                scroll={{ x: 800 }}
+                className="issuance-table"
                 columns={[
                   {
                     title: "Credential Name",

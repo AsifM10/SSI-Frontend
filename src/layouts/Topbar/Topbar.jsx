@@ -159,7 +159,7 @@ const Topbar = ({ title, role, actions, breadcrumb, onOpenMobileMenu }) => {
 
       {/* Right Actions */}
       <div className="topbar-actions">
-        {actions}
+        {actions && <div className="topbar-custom-actions">{actions}</div>}
 
         {/* Live Network Node Status Badge */}
         <a

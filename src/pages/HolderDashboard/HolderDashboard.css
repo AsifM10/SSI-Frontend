@@ -191,6 +191,21 @@
   flex-wrap: wrap;
   gap: 12px;
   box-shadow: var(--shadow-sm);
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.holder-did-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 300px;
+}
+
+.holder-toolbar-search {
+  width: 260px;
 }
 
 .did-shield-icon {
@@ -891,11 +906,17 @@
     gap: 14px;
   }
 
+  .holder-did-banner-left,
   .holder-did-banner > div {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-    width: 100%;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .holder-toolbar-search {
+    width: 100% !important;
   }
 
   .did-banner-code {
