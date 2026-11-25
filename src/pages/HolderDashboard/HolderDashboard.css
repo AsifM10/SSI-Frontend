@@ -838,6 +838,193 @@
   margin-bottom: 4px;
 }
 
+/* =========================================================
+   UNIVERSAL RESPONSIVE OVERHAUL (Holder Dashboard)
+   ========================================================= */
+
+/* Ensure all tables scroll horizontally on small screens */
+.holder-dashboard .ant-table-wrapper,
+.holder-dashboard .ant-table-content,
+.holder-dashboard .ant-table {
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.holder-dashboard .ant-table-content::-webkit-scrollbar {
+  height: 6px;
+}
+
+.holder-dashboard .ant-table-content::-webkit-scrollbar-track {
+  background: var(--surface-2, #F1F5F9);
+  border-radius: 4px;
+}
+
+.holder-dashboard .ant-table-content::-webkit-scrollbar-thumb {
+  background: var(--border-color, #CBD5E1);
+  border-radius: 4px;
+}
+
+/* Responsive Breakpoints */
+@media screen and (max-width: 900px) {
+  .wallet-cards-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .holder-dashboard {
+    gap: 14px;
+  }
+
+  .content-card {
+    padding: 16px !important;
+    border-radius: 12px !important;
+  }
+
+  /* Holder DID Banner */
+  .holder-did-banner {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px 14px;
+    gap: 14px;
+  }
+
+  .holder-did-banner > div {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .did-banner-code {
+    font-size: 11.5px;
+    word-break: break-all;
+    line-height: 1.4;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .btn-copy-did {
+    width: 100%;
+    height: 38px;
+  }
+
+  /* Wallet Status Card */
+  .wallet-status-card {
+    padding: 16px 14px;
+  }
+
+  .wallet-status-badges {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .status-badge-item {
+    width: 100%;
+    font-size: 12px;
+  }
+
+  .wallet-action-alert {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .alert-actions {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .alert-actions .ant-btn {
+    width: 100%;
+    height: 38px;
+  }
+
+  /* Wallet Cards Grid */
+  .wallet-cards-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px;
+  }
+
+  .cyber-wallet-card {
+    padding: 18px 16px;
+    min-height: 175px;
+  }
+
+  .wallet-did-val {
+    font-size: 11px;
+    word-break: break-all;
+  }
+
+  .wallet-card-bottom {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Lifecycle Steps */
+  .lifecycle-steps-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+
+  /* Subtab Toolbar */
+  .issuance-subtab-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .issuance-subtab-toolbar > div {
+    width: 100%;
+  }
+
+  .issuance-subtab-toolbar .ant-input,
+  .issuance-subtab-toolbar .ant-input-affix-wrapper {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .issuance-subtab-toolbar .ant-space {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px !important;
+  }
+
+  .issuance-subtab-toolbar .ant-btn {
+    flex: 1 1 auto;
+    height: 38px;
+  }
+
+  /* Table cell sizing */
+  .holder-dashboard .ant-table-cell {
+    padding: 10px 10px !important;
+    font-size: 12px !important;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .wallet-status-title {
+    font-size: 14px;
+  }
+
+  .wallet-cred-name {
+    font-size: 15px;
+  }
+
+  .issuance-subtab-title {
+    font-size: 15px;
+  }
+}
+
 .spec-card strong {
   color: var(--text-primary);
 }

@@ -1258,4 +1258,192 @@
   background: #475569;
 }
 
+/* =========================================================
+   UNIVERSAL RESPONSIVE OVERHAUL (Issuer Dashboard)
+   ========================================================= */
+
+/* Ensure all tables scroll horizontally on small screens */
+.issuer-dashboard .ant-table-wrapper,
+.issuer-dashboard .ant-table-content,
+.issuer-dashboard .ant-table {
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.issuer-dashboard .ant-table-content::-webkit-scrollbar {
+  height: 6px;
+}
+
+.issuer-dashboard .ant-table-content::-webkit-scrollbar-track {
+  background: #F1F5F9;
+  border-radius: 4px;
+}
+
+.issuer-dashboard .ant-table-content::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+
+[data-theme="dark"] .issuer-dashboard .ant-table-content::-webkit-scrollbar-track {
+  background: #1E293B;
+}
+
+[data-theme="dark"] .issuer-dashboard .ant-table-content::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+/* Responsive Breakpoints */
+@media screen and (max-width: 992px) {
+  .issuer-dashboard {
+    gap: 16px;
+  }
+
+  .overview-telemetry-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px;
+  }
+
+  .did-banner-card {
+    padding: 18px 20px;
+    gap: 14px;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .issuer-dashboard {
+    gap: 14px;
+  }
+
+  .content-card {
+    padding: 16px !important;
+    border-radius: 12px !important;
+  }
+
+  /* DID Banner Card */
+  .did-banner-card {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px 14px;
+    gap: 14px;
+  }
+
+  .did-banner-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .did-string {
+    font-size: 12px;
+    word-break: break-all;
+    line-height: 1.4;
+    margin: 4px 0 6px;
+  }
+
+  .did-banner-actions {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .did-banner-actions .ant-btn {
+    width: 100%;
+    height: 40px;
+  }
+
+  /* Action Banner */
+  .overview-action-banner {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px 14px;
+    gap: 14px;
+  }
+
+  .overview-action-btns {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .overview-action-btns .ant-btn {
+    width: 100%;
+    height: 40px;
+  }
+
+  /* Telemetry Grid */
+  .overview-telemetry-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+
+  .telemetry-mini-card {
+    padding: 14px;
+  }
+
+  /* Lifecycle Steps */
+  .lifecycle-steps-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+
+  /* Subtab Toolbar */
+  .issuance-subtab-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .issuance-subtab-toolbar > div {
+    width: 100%;
+  }
+
+  .issuance-subtab-toolbar .ant-input,
+  .issuance-subtab-toolbar .ant-input-affix-wrapper {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .issuance-subtab-toolbar .ant-space {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px !important;
+  }
+
+  .issuance-subtab-toolbar .ant-btn {
+    flex: 1 1 auto;
+    height: 38px;
+  }
+
+  /* Table cells compact on mobile */
+  .issuer-dashboard .ant-table-cell {
+    padding: 10px 10px !important;
+    font-size: 12px !important;
+  }
+
+  .mono-badge {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .did-banner-card {
+    padding: 14px 12px;
+  }
+
+  .overview-banner-title h2 {
+    font-size: 17px;
+  }
+
+  .issuance-subtab-title {
+    font-size: 15px;
+  }
+}
+
 

@@ -12,13 +12,14 @@ import {
   DownOutlined,
   SearchOutlined,
   LockOutlined,
+  MenuOutlined,
 } from "@ant-design/icons";
 import { useTheme } from "../../context/ThemeContext";
 import ChangePasswordModal from "../../components/modals/ChangePasswordModal/ChangePasswordModal";
 import NotificationBell from "../../components/NotificationBell/NotificationBell";
 import "./Topbar.css";
 
-const Topbar = ({ title, role, actions, breadcrumb }) => {
+const Topbar = ({ title, role, actions, breadcrumb, onOpenMobileMenu }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { dark, toggleTheme } = useTheme();
@@ -124,6 +125,17 @@ const Topbar = ({ title, role, actions, breadcrumb }) => {
     <div className="topbar">
       {/* Title & Accent Rail */}
       <div className="topbar-title">
+        {onOpenMobileMenu && (
+          <button
+            type="button"
+            className="topbar-mobile-menu-btn"
+            onClick={onOpenMobileMenu}
+            aria-label="Open navigation menu"
+            title="Open menu"
+          >
+            <MenuOutlined />
+          </button>
+        )}
         <span className="topbar-title-accent" />
         <div className="topbar-title-text">
           {breadcrumb && <div className="topbar-breadcrumb">{breadcrumb}</div>}

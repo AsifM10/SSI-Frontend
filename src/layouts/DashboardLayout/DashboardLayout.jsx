@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Drawer } from "antd";
 import {
   LeftOutlined,
   RightOutlined,
@@ -11,17 +12,35 @@ import "./DashboardLayout.css";
 
 const DashboardLayout = ({ children, title = "SSI Dashboard", role, actions, breadcrumb }) => {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   useWebSocket();
 
   const toggle = () => setCollapsed((prev) => !prev);
 
   return (
     <div className="dashboard-layout">
+      {/* Desktop Fixed Sidebar */}
       <Sidebar
         collapsed={collapsed}
         onToggle={toggle}
         role={role}
       />
+
+      {/* Mobile Navigation Drawer */}
+      <Drawer
+        placement="left"
+        open={mobileDrawerOpen}
+        onClose={() => setMobileDrawerOpen(false)}
+        width={260}
+        styles={{ body: { padding: 0, height: "100%", overflow: "hidden" } }}
+        className="mobile-sidebar-drawer"
+      >
+        <Sidebar
+          collapsed={false}
+          role={role}
+          onNavClick={() => setMobileDrawerOpen(false)}
+        />
+      </Drawer>
 
       <button
         className={`sidebar-toggle ${collapsed ? "collapsed" : ""}`}
@@ -38,6 +57,7 @@ const DashboardLayout = ({ children, title = "SSI Dashboard", role, actions, bre
             role={role}
             actions={actions}
             breadcrumb={breadcrumb}
+            onOpenMobileMenu={() => setMobileDrawerOpen(true)}
           />
         </div>
 

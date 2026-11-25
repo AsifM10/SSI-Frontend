@@ -19,7 +19,7 @@ import { NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import "./Sidebar.css";
 
-const Sidebar = ({ collapsed, role }) => {
+const Sidebar = ({ collapsed, role, onNavClick }) => {
   const { user } = useAuth();
 
   const currentRole = role || user?.role || "issuer";
@@ -144,6 +144,7 @@ const Sidebar = ({ collapsed, role }) => {
                 <NavLink
                   key={item.key}
                   to={item.path}
+                  onClick={onNavClick}
                   className={({ isActive }) =>
                     `sidebar-menu-item ${isActive ? "active" : ""}`
                   }
