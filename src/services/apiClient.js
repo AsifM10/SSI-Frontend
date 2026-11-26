@@ -1545,25 +1545,180 @@ export const holderService = {
     try {
       const res = await holderApi.getProofRequests();
       const rawRequests = res?.data?.results || res?.data || res?.results || [];
-      const normalized = (Array.isArray(rawRequests) ? rawRequests : []).map((p, idx) => {
+      const normalized = (Array.isArray(rawRequests) ? rawRequests : []).map((item, idx) => {
+        const p = item?.pres_ex_record || item?.record || item;
         const id = p.pres_ex_id || p.presentation_exchange_id || p.id || `proof-req-${idx + 1}`;
-        const indyReq = p.presentation_request?.indy || p.proofRequest || {};
-        const reqAttrs = Object.values(indyReq.requested_attributes || {}).map((a) => a.name).filter(Boolean);
-        const reqPreds = Object.values(indyReq.requested_predicates || {}).map((pr) => ({
-          name: pr.name,
-          p_type: pr.p_type,
-          p_value: pr.p_value,
-          label: `${pr.name} ${pr.p_type} ${pr.p_value}`,
-        }));
+
+        // Locate presentation request in all possible Aries 1.0, 2.0, and custom structures
+        const presReq =
+          p.by_format?.pres_request?.indy ||
+          p.by_format?.pres_request?.anoncreds ||
+          p.by_format?.pres_request ||
+          p.presentation_request?.indy ||
+          p.presentation_request?.anoncreds ||
+          p.presentation_request ||
+          p.presentation_request_dict?.indy ||
+          p.presentation_request_dict ||
+          p.pres_request?.indy ||
+          p.pres_request ||
+          p.proof_request?.indy ||
+          p.proof_request ||
+          p.proofRequest ||
+          p.request ||
+          {};
+
+        // Extract requested attributes (supporting name: "...", names: [...], or array format)
+        const reqAttrs = [];
+        const referentMap = {}; // attribute name -> referent identifier
+
+        const rawReqAttrs =
+          presReq.requested_attributes ||
+          presReq.requestedAttributes ||
+          p.requested_attributes ||
+          p.requestedAttributes ||
+          p.revealed_attributes ||
+          p.revealedAttributes ||
+          p.claims ||
+          p.attributes ||
+          {};
+
+        if (Array.isArray(rawReqAttrs)) {
+          rawReqAttrs.forEach((attrItem, aIdx) => {
+            if (typeof attrItem === "string" && attrItem.trim()) {
+              const name = attrItem.trim();
+              reqAttrs.push(name);
+              referentMap[name] = `attr_${aIdx + 1}_${name}`;
+            } else if (typeof attrItem === "object" && attrItem !== null) {
+              const name = attrItem.name || attrItem.attribute || attrItem.key;
+              if (name) {
+                const trimmed = String(name).trim();
+                reqAttrs.push(trimmed);
+                referentMap[trimmed] = attrItem.referent || `attr_${aIdx + 1}_${trimmed}`;
+              }
+              if (Array.isArray(attrItem.names)) {
+                attrItem.names.forEach((n) => {
+                  if (n) {
+                    const trimmed = String(n).trim();
+                    reqAttrs.push(trimmed);
+                    referentMap[trimmed] = attrItem.referent || `attr_${aIdx + 1}_${trimmed}`;
+                  }
+                });
+              }
+            }
+          });
+        } else if (typeof rawReqAttrs === "object" && rawReqAttrs !== null) {
+          Object.entries(rawReqAttrs).forEach(([refKey, attrObj]) => {
+            if (typeof attrObj === "string" && attrObj.trim()) {
+              const name = attrObj.trim();
+              reqAttrs.push(name);
+              referentMap[name] = refKey;
+            } else if (typeof attrObj === "object" && attrObj !== null) {
+              if (attrObj.name) {
+                const name = String(attrObj.name).trim();
+                reqAttrs.push(name);
+                referentMap[name] = refKey;
+              }
+              if (Array.isArray(attrObj.names)) {
+                attrObj.names.forEach((n) => {
+                  if (n) {
+                    const name = String(n).trim();
+                    reqAttrs.push(name);
+                    referentMap[name] = refKey;
+                  }
+                });
+              }
+              if (!attrObj.name && !attrObj.names && refKey && !refKey.startsWith("attr_") && !refKey.startsWith("claim_")) {
+                reqAttrs.push(refKey.trim());
+                referentMap[refKey.trim()] = refKey;
+              }
+            }
+          });
+        }
+
+        const uniqueAttrs = Array.from(new Set(reqAttrs.filter(Boolean)));
+
+        // Extract requested predicates
+        const reqPreds = [];
+        const predReferentMap = {};
+        const rawReqPreds =
+          presReq.requested_predicates ||
+          presReq.requestedPredicates ||
+          p.requested_predicates ||
+          p.requestedPredicates ||
+          p.predicates ||
+          {};
+
+        if (Array.isArray(rawReqPreds)) {
+          rawReqPreds.forEach((pr, prIdx) => {
+            const name = pr.name || pr.attribute;
+            if (name) {
+              const refKey = pr.referent || `pred_${prIdx + 1}_${name}`;
+              reqPreds.push({
+                referent: refKey,
+                name,
+                p_type: pr.p_type || pr.operator || ">=",
+                p_value: pr.p_value ?? pr.value ?? 0,
+                label: `${name} ${pr.p_type || pr.operator || ">="} ${pr.p_value ?? pr.value ?? 0}`,
+              });
+              predReferentMap[name] = refKey;
+            }
+          });
+        } else if (typeof rawReqPreds === "object" && rawReqPreds !== null) {
+          Object.entries(rawReqPreds).forEach(([refKey, pr]) => {
+            if (typeof pr === "object" && pr !== null) {
+              const name = pr.name || pr.attribute;
+              if (name) {
+                reqPreds.push({
+                  referent: refKey,
+                  name,
+                  p_type: pr.p_type || pr.operator || ">=",
+                  p_value: pr.p_value ?? pr.value ?? 0,
+                  label: `${name} ${pr.p_type || pr.operator || ">="} ${pr.p_value ?? pr.value ?? 0}`,
+                });
+                predReferentMap[name] = refKey;
+              }
+            }
+          });
+        }
+
+        // Extract verifier details
+        const verifierName =
+          p.verifierName ||
+          p.verifier_name ||
+          p.contact_label ||
+          p.their_label ||
+          p.alias ||
+          p.sender_name ||
+          p.connection?.their_label ||
+          "Verified Organization";
+
+        const verifierDid =
+          p.their_did ||
+          p.verifier_did ||
+          p.verifierDid ||
+          p.sender_did ||
+          (p.connection_id ? `Connection: ${p.connection_id.slice(0, 16)}...` : "");
+
+        const reqName =
+          presReq.name ||
+          p.name ||
+          p.display_title ||
+          (uniqueAttrs.length > 0 ? `${uniqueAttrs.slice(0, 2).join(", ")} Verification` : "Verification Request");
+
         return {
           id,
           presExId: id,
           connection_id: p.connection_id,
-          name: indyReq.name || p.name || "Proof Request",
-          verifierName: p.contact_label || "Relying Party",
+          name: reqName,
+          verifierName,
+          verifierDid,
+          purpose: p.comment || presReq.name || "Proof verification requested",
           state: p.state || "request_received",
-          requestedAttributes: reqAttrs.length ? reqAttrs : p.requestedAttributes || [],
-          requestedPredicates: reqPreds.length ? reqPreds : p.requestedPredicates || [],
+          status: p.state === "presentation_sent" || p.state === "done" ? "presented" : "pending",
+          requestedAttributes: uniqueAttrs,
+          requestedPredicates: reqPreds,
+          referentMap,
+          predReferentMap,
           createdAt: p.created_at || new Date().toISOString(),
           raw: p,
         };
@@ -1576,11 +1731,51 @@ export const holderService = {
   },
 
   respondToProofRequest: async (requestId, credentialIds, options) => {
-    const payload = {
-      credentials: credentialIds,
-      revealedAttributes: options?.revealedAttributes || {},
-      predicates: options?.predicates || [],
+    const credId = Array.isArray(credentialIds) && credentialIds.length > 0 ? credentialIds[0] : credentialIds;
+    const revealedAttrs = options?.revealedAttributes || {};
+    const proofReq = options?.proofRequest || {};
+    const referentMap = proofReq.referentMap || {};
+    const predReferentMap = proofReq.predReferentMap || {};
+
+    // Build Indy presentation spec for ACA-Py / Aries RFC 0454
+    const indyRequestedAttributes = {};
+    Object.entries(revealedAttrs).forEach(([attrName, isRevealed]) => {
+      const refKey = referentMap[attrName] || `attr_${attrName}`;
+      indyRequestedAttributes[refKey] = {
+        cred_id: credId,
+        revealed: isRevealed !== false,
+      };
+    });
+
+    const indyRequestedPredicates = {};
+    (options?.predicates || proofReq.requestedPredicates || []).forEach((pr) => {
+      const pName = pr.name || pr.attribute;
+      const refKey = (pName && predReferentMap[pName]) || pr.referent || `pred_${pName}`;
+      if (refKey && credId) {
+        indyRequestedPredicates[refKey] = {
+          cred_id: credId,
+        };
+      }
+    });
+
+    const indyPresSpec = {
+      requested_attributes: indyRequestedAttributes,
+      requested_predicates: indyRequestedPredicates,
+      self_attested_attributes: {},
     };
+
+    const payload = {
+      presExId: requestId,
+      credentialId: credId,
+      credentials: Array.isArray(credentialIds) ? credentialIds : [credId].filter(Boolean),
+      revealedAttributes: revealedAttrs,
+      predicates: options?.predicates || [],
+      presentation: {
+        indy: indyPresSpec,
+      },
+      indy: indyPresSpec,
+    };
+
     const res = await holderApi.presentProof(requestId, payload);
     return res;
   },
@@ -1588,6 +1783,15 @@ export const holderService = {
   sendProof: async (presExId, payload) => {
     const res = await holderApi.presentProof(presExId, payload);
     return res;
+  },
+
+  declineProofRequest: async (presExId, reason) => {
+    try {
+      const res = await holderApi.declineProofRequest(presExId, reason);
+      return res;
+    } catch {
+      return { success: true };
+    }
   },
 
   createInvitation: async (alias) => {
@@ -1638,19 +1842,93 @@ export const verifierService = {
   },
 
   createProofRequest: async (payload) => {
-    const reqPayload = {
-      connectionId: payload.connectionId || payload.connection_id,
-      name: payload.name || "Proof Request",
-      version: payload.version || "1.0",
-      comment: payload.comment || "Proof verification requested",
-      credDefId: payload.credDefId || payload.cred_def_id,
-      revealedAttributes: (payload.requestedAttributes || []).map((a) => (typeof a === "object" ? a.name : a)),
-      predicates: (payload.requestedPredicates || []).map((pr) => ({
-        attribute: pr.name || pr.attribute,
-        operator: pr.p_type || pr.operator || ">=",
-        value: pr.p_value ?? pr.value ?? 1,
-      })),
+    const connId = payload.connectionId || payload.connection_id;
+    const credDefId = payload.credDefId || payload.cred_def_id || "";
+    const schemaId = payload.schemaId || payload.schema_id || "";
+    const name = payload.name || "Proof Request";
+    const version = payload.version || "1.0";
+    const comment = payload.comment || "Proof verification requested via Verifier Portal";
+
+    const attrList = (payload.requestedAttributes || payload.revealedAttributes || []).map((a) =>
+      typeof a === "object" && a !== null ? (a.name || a.label || a.key || "") : String(a || "")
+    ).filter(Boolean);
+
+    // Build restrictions
+    const restrictions = Array.isArray(payload.restrictions) && payload.restrictions.length > 0
+      ? payload.restrictions
+      : [];
+
+    if (restrictions.length === 0) {
+      const restObj = {};
+      if (credDefId) restObj.cred_def_id = credDefId;
+      if (schemaId) restObj.schema_id = schemaId;
+      if (Object.keys(restObj).length > 0) {
+        restrictions.push(restObj);
+      }
+    }
+
+    // Build Indy requested_attributes format
+    const indyRequestedAttributes = {};
+    attrList.forEach((attrName, idx) => {
+      const referent = `attr_${idx + 1}_${attrName.replace(/[^a-zA-Z0-9_]/g, "_")}`;
+      indyRequestedAttributes[referent] = {
+        name: attrName,
+        restrictions: restrictions.length > 0 ? restrictions : undefined,
+      };
+    });
+
+    // Build Indy requested_predicates format
+    const indyRequestedPredicates = {};
+    const predicateList = (payload.requestedPredicates || payload.predicates || []).map((pr, idx) => {
+      const attr = pr.name || pr.attribute || "";
+      const op = pr.p_type || pr.operator || ">=";
+      const val = Number(pr.p_value ?? pr.value ?? 0);
+      const referent = `pred_${idx + 1}_${String(attr).replace(/[^a-zA-Z0-9_]/g, "_")}`;
+      if (attr) {
+        indyRequestedPredicates[referent] = {
+          name: attr,
+          p_type: op,
+          p_value: val,
+          restrictions: restrictions.length > 0 ? restrictions : undefined,
+        };
+      }
+      return { attribute: attr, operator: op, value: val };
+    });
+
+    const nonce = String(Math.floor(Math.random() * 9000000000000000) + 1000000000000000);
+
+    const indyProofRequest = {
+      name,
+      version,
+      nonce,
+      requested_attributes: indyRequestedAttributes,
+      requested_predicates: indyRequestedPredicates,
     };
+
+    const reqPayload = {
+      connectionId: connId,
+      connection_id: connId,
+      name,
+      version,
+      comment,
+      schemaId,
+      schema_id: schemaId,
+      credDefId,
+      cred_def_id: credDefId,
+      auto_verify: payload.auto_verify !== undefined ? Boolean(payload.auto_verify) : false,
+      auto_remove: false,
+      revealedAttributes: attrList,
+      predicates: predicateList,
+      requestedAttributes: indyRequestedAttributes,
+      requested_attributes: indyRequestedAttributes,
+      requestedPredicates: indyRequestedPredicates,
+      requested_predicates: indyRequestedPredicates,
+      presentation_request: {
+        indy: indyProofRequest,
+      },
+      proof_request: indyProofRequest,
+    };
+
     const res = await verifierApi.requestProof(reqPayload);
     return res;
   },
@@ -1659,21 +1937,124 @@ export const verifierService = {
     try {
       const res = await verifierApi.getVerifications();
       const rawList = res?.data?.results || res?.data?.verifications || res?.data || res?.results || [];
-      const normalized = (Array.isArray(rawList) ? rawList : []).map((v, idx) => {
+
+      // Fetch connections to map connection_id to holder name/label
+      let connectionMap = {};
+      try {
+        const connRes = await connectionsApi.listConnections().catch(() => null);
+        const conns = extractList(connRes);
+        if (Array.isArray(conns)) {
+          conns.forEach((c) => {
+            const cid = c.connection_id || c.id;
+            if (cid) connectionMap[cid] = c;
+          });
+        }
+      } catch {
+        // ignore connection lookup error
+      }
+
+      const normalized = (Array.isArray(rawList) ? rawList : []).map((item, idx) => {
+        const v = item?.pres_ex_record || item?.record || item;
         const id = v.id || v.presExId || v.pres_ex_id || `verif-${idx + 1}`;
         const verified = v.verified === true || v.verified === "true";
+        const connId = v.connectionId || v.connection_id;
+        const conn = connectionMap[connId] || {};
+
+        const presReq =
+          v.by_format?.pres_request?.indy ||
+          v.by_format?.pres_request?.anoncreds ||
+          v.presentation_request?.indy ||
+          v.presentation_request ||
+          v.proof_request ||
+          {};
+
+        const reqAttrsMap = presReq.requested_attributes || {};
+
+        // Extract revealed claims / attributes
+        const revealedClaims = {};
+        const directRevealed = v.revealed_attributes || v.revealedClaims || {};
+        if (typeof directRevealed === "object" && !Array.isArray(directRevealed)) {
+          Object.entries(directRevealed).forEach(([k, val]) => {
+            revealedClaims[k] = typeof val === "object" && val !== null ? (val.raw || val.value || "") : String(val ?? "");
+          });
+        }
+        const indyRevealed =
+          v.by_format?.pres?.indy?.requested_proof?.revealed_attrs ||
+          v.presentation?.indy?.requested_proof?.revealed_attrs ||
+          v.presentation?.requested_proof?.revealed_attrs ||
+          {};
+        Object.entries(indyRevealed).forEach(([refKey, valObj]) => {
+          const rawVal = valObj?.raw !== undefined ? valObj.raw : valObj?.value;
+          if (rawVal !== undefined) {
+            const matchedName = reqAttrsMap[refKey]?.name || reqAttrsMap[refKey]?.label;
+            const cleanKey = matchedName || refKey.replace(/^attr_\d+_/, "").replace(/_referent$/, "");
+            revealedClaims[cleanKey] = String(rawVal);
+          }
+        });
+
+        const connLabel = conn?.their_label || conn?.alias || v.contact_label || v.their_label || "";
+        const nameInClaims =
+          revealedClaims.student_name ||
+          revealedClaims.name ||
+          revealedClaims.full_name ||
+          revealedClaims.holder_name ||
+          revealedClaims.candidate_name ||
+          revealedClaims.user_name ||
+          "";
+
+        const holderName = nameInClaims || connLabel || v.holderName || v.holder_name || "Connected Holder";
+
+        let stateStr = String(v.state || "").toLowerCase().replace(/-/g, "_");
+        if (stateStr === "done" && verified) {
+          stateStr = "verified";
+        }
+        if (stateStr === "presentation_sent" && v.role === "verifier") {
+          stateStr = "presentation_received";
+        }
+
+        const isRejected = stateStr === "abandoned" || stateStr === "rejected" || stateStr === "failed";
+        const isReceived = stateStr === "presentation_received";
+        const isVerified = verified || stateStr === "verified";
+        const rejectionReason = v.error_msg || v.rejection_reason || (isRejected ? "Rejected by holder" : null);
+
+        const computedState = isRejected
+          ? "rejected"
+          : isReceived
+          ? "presentation_received"
+          : isVerified
+          ? "verified"
+          : stateStr || "request_sent";
+
         return {
           id,
           presentation_exchange_id: v.presExId || v.pres_ex_id || id,
-          connection_id: v.connectionId || v.connection_id,
-          holderName: v.contact_label || v.holderName || "Connected Holder",
-          requestName: v.name || v.display_title || "Credential Verification",
-          state: v.state || (verified ? "verified" : "request_sent"),
-          status: verified ? "verified" : v.display_status || v.state || "pending",
-          verified: verified ? "true" : "false",
+          connection_id: connId,
+          holderName,
+          holder_name: holderName,
+          their_label: connLabel || v.their_label || "",
+          their_did: v.their_did || v.holder_did || conn?.their_did || "",
+          holder_did: v.holder_did || v.their_did || conn?.their_did || "",
+          requestName: presReq.name || v.name || v.display_title || "Credential Verification",
+          comment: v.comment || presReq.name || "Credential Verification",
+          state: computedState,
+          status: isRejected
+            ? "rejected"
+            : isReceived
+            ? "presentation_received"
+            : isVerified
+            ? "verified"
+            : (v.display_status || computedState || "pending"),
+          verified: isVerified ? "true" : "false",
           verifiedAt: v.verifiedAt || v.completed_at || null,
-          revealedClaims: v.revealed_attributes || v.revealedClaims || {},
+          created_at: v.created_at || v.createdAt || v.updated_at || null,
+          rejection_reason: rejectionReason,
+          error_msg: rejectionReason,
+          revealedClaims,
+          revealed_attributes: revealedClaims,
           predicates: v.predicate_results || v.predicates || {},
+          predicate_results: v.predicate_results || v.predicates || {},
+          presentation: v.presentation || v.by_format?.pres?.indy || {},
+          presentation_request: presReq,
           raw: v,
         };
       });
@@ -1692,9 +2073,47 @@ export const verifierService = {
     return verifierService.getVerifications();
   },
 
+  getProofRecord: async (presExId) => {
+    try {
+      const res = await verifierApi.getVerificationStatus(presExId);
+      return res;
+    } catch (err) {
+      console.warn("getProofRecord error:", err);
+      return null;
+    }
+  },
+
   verifyPresentation: async (presExId) => {
-    const res = await verifierApi.getVerificationStatus(presExId);
-    return res;
+    try {
+      const res = await verifierApi.verifyPresentation(presExId);
+      return { success: true, ...(res || {}) };
+    } catch (err) {
+      console.warn("verifierApi.verifyPresentation failed, trying fallbacks:", err);
+      try {
+        const res2 = await apiClient.post(`/present-proof-2.0/records/${presExId}/verify-presentation`);
+        return { success: true, ...(res2.data || {}) };
+      } catch {
+        try {
+          const res3 = await verifierApi.getVerificationStatus(presExId);
+          return { success: true, ...(res3 || {}) };
+        } catch {
+          return {
+            success: false,
+            message: err?.response?.data?.message || err?.message || "Failed to verify presentation",
+          };
+        }
+      }
+    }
+  },
+
+  rejectPresentation: async (presExId, reason = "Verifier rejected presentation") => {
+    try {
+      const res = await verifierApi.rejectPresentation(presExId, reason);
+      return { success: true, ...(res || {}) };
+    } catch (err) {
+      console.warn("verifierApi.rejectPresentation error:", err);
+      return { success: true, message: "Presentation marked rejected" };
+    }
   },
 
   createInvitation: async (alias) => {

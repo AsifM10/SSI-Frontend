@@ -1,5 +1,6 @@
 .proof-templates-modal {
   width: 760px !important;
+  max-width: calc(100% - 24px) !important;
 }
 
 .template-card-item {

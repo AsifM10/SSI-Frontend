@@ -14,8 +14,8 @@ export const verifierApi = {
   },
 
   // 1. High-Level DB Verification Workflow
-  async getCredentialCatalog() {
-    const res = await apiClient.get(ENDPOINTS.VERIFIER.CREDENTIAL_CATALOG);
+  async getCredentialCatalog(params = {}) {
+    const res = await apiClient.get(ENDPOINTS.VERIFIER.CREDENTIAL_CATALOG, { params });
     return res.data;
   },
 
@@ -71,8 +71,42 @@ export const verifierApi = {
 
   // 2. Proof Verification
   async verifyPresentation(presExId) {
-    const res = await apiClient.post(ENDPOINTS.VERIFIER.VERIFICATION_VERIFY(presExId));
-    return res.data;
+    try {
+      const res = await apiClient.post(ENDPOINTS.VERIFIER.VERIFICATION_VERIFY(presExId));
+      return res.data;
+    } catch (err) {
+      // Fallback to ACA-Py 2.0 direct endpoint if custom route not present
+      try {
+        const fbRes = await apiClient.post(`/present-proof-2.0/records/${presExId}/verify-presentation`);
+        return fbRes.data;
+      } catch {
+        throw err;
+      }
+    }
+  },
+
+  async rejectPresentation(presExId, reason = "Verifier rejected presentation") {
+    try {
+      const res = await apiClient.post(ENDPOINTS.VERIFIER.VERIFICATION_REJECT(presExId), { reason });
+      return res.data;
+    } catch (err) {
+      // Fallback: problem-report in present-proof 2.0 or 1.0
+      try {
+        const fbRes = await apiClient.post(`/present-proof-2.0/records/${presExId}/problem-report`, {
+          description: reason,
+        });
+        return fbRes.data;
+      } catch {
+        try {
+          const fbRes2 = await apiClient.post(`/present-proof/records/${presExId}/problem-report`, {
+            explain_ltxt: reason,
+          });
+          return fbRes2.data;
+        } catch {
+          throw err;
+        }
+      }
+    }
   },
 
   // 2.5 Proof Templates

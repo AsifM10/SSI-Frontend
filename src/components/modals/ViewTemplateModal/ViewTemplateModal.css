@@ -1,7 +1,7 @@
 /* ViewTemplateModal.css - Static Locked Modal with Dedicated Scroll Container */
 
 .schema-details-modal {
-  max-width: calc(100vw - 32px);
+  max-width: calc(100% - 24px) !important;
 }
 
 /* Modal Frame: Static, Centered, and Non-Moving */
@@ -13,9 +13,11 @@
   display: flex !important;
   flex-direction: column !important;
   max-height: 85vh !important;
+  max-height: 85dvh !important;
   height: auto;
   position: relative;
   background: #ffffff;
+  max-width: 100%;
 }
 
 /* 1. Header: Permanently Locked at the Top */
@@ -68,7 +70,10 @@
   overflow-y: auto;
   overflow-x: hidden;
   max-height: calc(85vh - 140px);
+  max-height: calc(85dvh - 140px);
+  min-width: 0;
   padding: 20px 24px;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 #f8fafc;
 }
@@ -115,6 +120,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .schema-header-title {
@@ -122,6 +129,8 @@
   font-weight: 700;
   color: #0f172a;
   margin: 0;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 /* Section Cards: Static, Solid - NO Hover Displacement */
@@ -133,6 +142,8 @@
   overflow: hidden;
   transform: none !important;
   transition: border-color 0.15s ease;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .schema-section-card:hover {
@@ -146,6 +157,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
 }
 
 .schema-section-title {
@@ -155,17 +169,22 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .schema-section-content {
   padding: 16px 18px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* Section 1: Basic Info Grid */
 .schema-basic-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+  min-width: 0;
 }
 
 @media (max-width: 640px) {
@@ -178,6 +197,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .schema-info-label {
@@ -195,6 +215,9 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  flex-wrap: wrap;
 }
 
 /* Section 2: Prominent Attributes Section */
@@ -226,9 +249,10 @@
 
 .attributes-grid-container {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(180px, 100%), 1fr));
   gap: 10px;
   margin-top: 12px;
+  min-width: 0;
 }
 
 /* Individual Attribute Cards: Static, NO movement on hover */
@@ -256,6 +280,8 @@
   align-items: center;
   gap: 8px;
   overflow: hidden;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .attribute-index-tag {
@@ -276,6 +302,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 /* Section 3: Advanced Info */
@@ -287,16 +314,26 @@
   padding: 14px;
   border-radius: 8px;
   max-height: 280px;
+  max-width: 100%;
   overflow: auto;
+  overflow-wrap: anywhere;
   margin: 0;
 }
 
 .ledger-meta-row {
   display: flex;
   justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
   padding: 6px 0;
   border-bottom: 1px dashed #e2e8f0;
   font-size: 12px;
+  min-width: 0;
+}
+
+.ledger-meta-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .ledger-meta-row:last-child {

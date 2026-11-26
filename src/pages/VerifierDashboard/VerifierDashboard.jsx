@@ -55,59 +55,243 @@ import "./VerifierDashboard.css";
 
 const { Option } = Select;
 
-const DEFAULT_CREDENTIAL_TEMPLATES = [
-  {
-    id: "national-id",
-    name: "National Identity / Age Verification",
-    description: "Standard citizen identification card with age and residency claims",
-    attributes: [
-      { key: "fullName", label: "Full Name" },
-      { key: "email", label: "Email Address" },
-      { key: "age", label: "Age" },
-      { key: "nationality", label: "Nationality" },
-    ],
-    defaultPredicate: { name: "age", p_type: ">=", p_value: "18", label: "Age >= 18" },
-  },
-  {
-    id: "university-degree",
-    name: "University Degree Verification",
-    description: "Higher education graduation credential with academic major and GPA",
-    attributes: [
-      { key: "studentName", label: "Student Name" },
-      { key: "degreeType", label: "Degree" },
-      { key: "major", label: "Major / Specialization" },
-      { key: "graduationYear", label: "Graduation Year" },
-      { key: "gradeAverage", label: "Grade Average (GPA)" },
-    ],
-    defaultPredicate: { name: "gradeAverage", p_type: ">=", p_value: "3.5", label: "GPA >= 3.5" },
-  },
-  {
-    id: "cyber-cert",
-    name: "Cyber Security Certification",
-    description: "Professional IT security accreditation and skill verification",
-    attributes: [
-      { key: "holderName", label: "Holder Name" },
-      { key: "certificateId", label: "Certificate ID" },
-      { key: "issueDate", label: "Issue Date" },
-      { key: "expiryDate", label: "Expiry Date" },
-      { key: "securityLevel", label: "Security Level" },
-    ],
-    defaultPredicate: { name: "securityLevel", p_type: ">=", p_value: "2", label: "Security Level >= 2" },
-  },
-  {
-    id: "corporate-id",
-    name: "Corporate Employee ID & Clearance",
-    description: "Enterprise organizational identity, department, and access clearance",
-    attributes: [
-      { key: "fullName", label: "Full Name" },
-      { key: "employeeId", label: "Employee ID" },
-      { key: "department", label: "Department" },
-      { key: "designation", label: "Designation" },
-      { key: "clearanceLevel", label: "Clearance Level" },
-    ],
-    defaultPredicate: { name: "clearanceLevel", p_type: ">=", p_value: "2", label: "Clearance Level >= 2" },
-  },
-];
+/**
+ * Helper to resolve the best human-readable holder name from verified claims,
+ * connections list (by connection_id), or record metadata.
+ */
+export const getHolderDisplayName = (record, connections = []) => {
+  if (!record) return "Connected Holder";
+
+  // 1. Check verified claims for actual personal name
+  const claims = record.revealedClaims || record.revealed_attributes || record.claims || {};
+  const nameClaimKeys = [
+    "student_name",
+    "name",
+    "full_name",
+    "holder_name",
+    "user_name",
+    "username",
+    "candidate_name",
+    "employee_name",
+    "applicant_name",
+    "first_name",
+  ];
+
+  if (typeof claims === "object" && claims !== null) {
+    for (const key of nameClaimKeys) {
+      for (const [k, v] of Object.entries(claims)) {
+        if (k.toLowerCase() === key || k.toLowerCase().replace(/[\s_-]+/g, "") === key.replace(/[\s_-]+/g, "")) {
+          const rawVal = typeof v === "object" && v !== null ? (v.raw || v.value || "") : String(v ?? "");
+          if (rawVal && rawVal.trim() && rawVal !== "undefined" && rawVal !== "null") {
+            return rawVal.trim();
+          }
+        }
+      }
+    }
+  }
+
+  // Also check inside record.raw for Indy presentation revealed attrs
+  const indyRevealed =
+    record.raw?.by_format?.pres?.indy?.requested_proof?.revealed_attrs ||
+    record.raw?.presentation?.indy?.requested_proof?.revealed_attrs ||
+    record.raw?.presentation?.requested_proof?.revealed_attrs;
+
+  if (indyRevealed && typeof indyRevealed === "object") {
+    for (const [key, valObj] of Object.entries(indyRevealed)) {
+      const val = valObj?.raw || valObj?.value;
+      if (val && typeof val === "string" && val.trim()) {
+        const lowerKey = key.toLowerCase();
+        if (nameClaimKeys.some((nk) => lowerKey.includes(nk))) {
+          return val.trim();
+        }
+      }
+    }
+  }
+
+  // 2. Cross-reference connections list by connection_id
+  const connId = record.connection_id || record.connectionId;
+  if (connId && Array.isArray(connections) && connections.length > 0) {
+    const conn = connections.find((c) => (c.connection_id || c.id) === connId);
+    if (conn) {
+      const connName = conn.their_label || conn.alias || conn.label || conn.their_role;
+      if (connName && connName.trim() && !connName.toLowerCase().includes("default") && connName !== "Connected Holder") {
+        return connName.trim();
+      }
+    }
+  }
+
+  // 3. Direct fields on the record
+  const directName =
+    record.holder_name ||
+    record.holderName ||
+    record.their_label ||
+    record.contact_label ||
+    record.alias ||
+    record.sender_name;
+
+  if (directName && directName.trim() && directName !== "Connected Holder") {
+    return directName.trim();
+  }
+
+  // 4. Fallback: formatted DID or connection ID
+  const did = record.holder_did || record.holderDid || record.their_did;
+  if (did && typeof did === "string") {
+    const cleanDid = did.replace(/^did:sov:/, "");
+    return `Holder (${cleanDid.slice(0, 8)}...${cleanDid.slice(-4)})`;
+  }
+
+  if (connId && typeof connId === "string") {
+    return `Holder (${connId.slice(0, 8)}...)`;
+  }
+
+  return "Connected Holder";
+};
+
+/**
+ * Helper to extract all disclosed attributes from various ACA-Py / SSI backend formats:
+ * - record.revealed_attributes (from GET /verifier/verifications/{id})
+ * - record.revealedClaims (from normalized list)
+ * - record.presentation.requested_proof.revealed_attrs (Indy referents)
+ * - record.raw.by_format.pres.indy.requested_proof.revealed_attrs
+ */
+export const getDisclosedAttributes = (record) => {
+  if (!record) return [];
+  const map = new Map();
+
+  // 1. Direct revealed claims / revealed_attributes from backend API
+  const direct =
+    record.revealed_attributes ||
+    record.revealedClaims ||
+    record.claims ||
+    record.raw?.revealed_attributes ||
+    record.raw?.revealedClaims ||
+    {};
+
+  if (typeof direct === "object" && direct !== null && !Array.isArray(direct)) {
+    Object.entries(direct).forEach(([k, v]) => {
+      const val = typeof v === "object" && v !== null ? (v.raw ?? v.value ?? JSON.stringify(v)) : String(v ?? "");
+      if (val !== undefined && val !== "") {
+        map.set(k, { label: k, value: val });
+      }
+    });
+  }
+
+  // 2. Indy format inside presentation object
+  const indyProof =
+    record.presentation?.requested_proof?.revealed_attrs ||
+    record.raw?.presentation?.indy?.requested_proof?.revealed_attrs ||
+    record.raw?.presentation?.requested_proof?.revealed_attrs ||
+    record.raw?.by_format?.pres?.indy?.requested_proof?.revealed_attrs ||
+    {};
+
+  const reqAttrs =
+    record.presentation_request?.requested_attributes ||
+    record.raw?.presentation_request?.indy?.requested_attributes ||
+    record.raw?.by_format?.pres_request?.indy?.requested_attributes ||
+    record.raw?.proof_request?.requested_attributes ||
+    {};
+
+  if (typeof indyProof === "object" && indyProof !== null) {
+    Object.entries(indyProof).forEach(([refKey, valObj]) => {
+      const rawVal = valObj?.raw !== undefined ? valObj.raw : valObj?.value;
+      if (rawVal !== undefined && rawVal !== null) {
+        const matched = reqAttrs[refKey]?.name || reqAttrs[refKey]?.label;
+        const cleanName =
+          matched ||
+          valObj?.name ||
+          valObj?.label ||
+          refKey.replace(/^attr_\d+_/, "").replace(/_referent$/, "").replace(/^claim_\d+_/, "");
+
+        if (!map.has(cleanName)) {
+          map.set(cleanName, { label: cleanName, value: String(rawVal) });
+        }
+      }
+    });
+  }
+
+  // 3. Check revealed_attr_groups if grouped
+  const indyGroups =
+    record.presentation?.requested_proof?.revealed_attr_groups ||
+    record.raw?.presentation?.indy?.requested_proof?.revealed_attr_groups ||
+    record.raw?.by_format?.pres?.indy?.requested_proof?.revealed_attr_groups ||
+    {};
+  if (typeof indyGroups === "object" && indyGroups !== null) {
+    Object.values(indyGroups).forEach((grp) => {
+      const values = grp?.values || {};
+      Object.entries(values).forEach(([k, vObj]) => {
+        const rawVal = vObj?.raw !== undefined ? vObj.raw : vObj?.value;
+        if (rawVal !== undefined && rawVal !== null && !map.has(k)) {
+          map.set(k, { label: k, value: String(rawVal) });
+        }
+      });
+    });
+  }
+
+  return Array.from(map.values());
+};
+
+/**
+ * Helper to extract satisfied zero-knowledge predicates
+ */
+export const getPredicateResults = (record) => {
+  if (!record) return [];
+  const results = [];
+
+  // Direct predicate results
+  const direct =
+    record.predicate_results ||
+    record.predicates ||
+    record.raw?.predicate_results ||
+    record.raw?.predicates ||
+    {};
+
+  if (typeof direct === "object" && direct !== null && !Array.isArray(direct)) {
+    Object.entries(direct).forEach(([k, v]) => {
+      if (typeof v === "object" && v !== null) {
+        results.push({
+          name: k,
+          condition: v.condition || `${v.p_type || ">="} ${v.p_value || ""}`,
+          satisfied: v.satisfied !== false,
+        });
+      } else {
+        results.push({
+          name: k,
+          condition: "Satisfied",
+          satisfied: Boolean(v),
+        });
+      }
+    });
+  }
+
+  // Indy predicates
+  const indyPreds =
+    record.presentation?.requested_proof?.predicates ||
+    record.raw?.presentation?.indy?.requested_proof?.predicates ||
+    record.raw?.by_format?.pres?.indy?.requested_proof?.predicates ||
+    {};
+
+  const reqPreds =
+    record.presentation_request?.requested_predicates ||
+    record.raw?.presentation_request?.indy?.requested_predicates ||
+    record.raw?.by_format?.pres_request?.indy?.requested_predicates ||
+    {};
+
+  if (typeof indyPreds === "object" && indyPreds !== null) {
+    Object.entries(indyPreds).forEach(([refKey, predObj]) => {
+      const req = reqPreds[refKey] || {};
+      const name = req.name || predObj.name || refKey;
+      if (!results.some((r) => r.name === name)) {
+        results.push({
+          name,
+          condition: req.p_type ? `${req.p_type} ${req.p_value}` : "Cryptographic Assertion",
+          satisfied: true,
+        });
+      }
+    });
+  }
+
+  return results;
+};
 
 const VerifierDashboard = ({ activeTab = "dashboard" }) => {
   const navigate = useNavigate();
@@ -141,14 +325,21 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
 
   // Request form state
   const [requestForm] = Form.useForm();
-  const [selectedTemplate, setSelectedTemplate] = useState("national-id");
-  const [selectedAttributes, setSelectedAttributes] = useState(["fullName", "email", "age"]);
-  const [predicateEnabled, setPredicateEnabled] = useState(true);
+  const [requestMode, setRequestMode] = useState("own");
+  const [requestedAttributes, setRequestedAttributes] = useState([]);
+  const [customAttribute, setCustomAttribute] = useState("");
+  const [catalogSchemas, setCatalogSchemas] = useState([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
+  const [catalogError, setCatalogError] = useState("");
+  const [selectedCatalogSchemaId, setSelectedCatalogSchemaId] = useState(null);
+  const [predicateEnabled, setPredicateEnabled] = useState(false);
   const [predicateAttr, setPredicateAttr] = useState("age");
   const [predicateOp, setPredicateOp] = useState(">=");
   const [predicateVal, setPredicateVal] = useState("18");
   const [hasRestrictions, setHasRestrictions] = useState(false);
   const [restrictionIssuerDid, setRestrictionIssuerDid] = useState("");
+  const [manualReviewEnabled, setManualReviewEnabled] = useState(true);
   const [submittingRequest, setSubmittingRequest] = useState(false);
 
   const loadData = async (showLoadingSpinner = false) => {
@@ -201,67 +392,221 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
     };
   }, []);
 
-  const handleTemplateSelect = (templateId) => {
-    const tmpl = DEFAULT_CREDENTIAL_TEMPLATES.find((t) => t.id === templateId);
-    if (!tmpl) return;
-    setSelectedTemplate(templateId);
-    requestForm.setFieldsValue({
-      requestName: tmpl.name,
-      comment: tmpl.description,
-    });
-    setSelectedAttributes(tmpl.attributes.map((a) => a.key));
-    if (tmpl.defaultPredicate) {
-      setPredicateEnabled(true);
-      setPredicateAttr(tmpl.defaultPredicate.name);
-      setPredicateOp(tmpl.defaultPredicate.p_type);
-      setPredicateVal(String(tmpl.defaultPredicate.p_value));
-    } else {
-      setPredicateEnabled(false);
+  const normalizeCatalogSchema = (raw = {}) => {
+    const schemaId = raw.schemaId || raw.schema_id || raw.id || "";
+    const rawAttributes =
+      (Array.isArray(raw.attributes) && raw.attributes) ||
+      (Array.isArray(raw.attrNames) && raw.attrNames) ||
+      (Array.isArray(raw.attr_names) && raw.attr_names) ||
+      [];
+    const attributes = rawAttributes
+      .map((a) => (typeof a === "object" ? a.name || a.attribute : a))
+      .filter(Boolean);
+    const rawCredDefs =
+      (Array.isArray(raw.credentialDefinitions) && raw.credentialDefinitions) ||
+      (Array.isArray(raw.credential_definitions) && raw.credential_definitions) ||
+      [];
+    const credentialDefinitions = rawCredDefs
+      .map((cd) => {
+        if (typeof cd === "string") return { credDefId: cd, tag: "" };
+        return {
+          credDefId: cd.credDefId || cd.cred_def_id || cd.id || "",
+          tag: cd.tag || "",
+        };
+      })
+      .filter((cd) => cd.credDefId);
+    const parts = schemaId.split(":");
+    return {
+      schemaId,
+      schemaName: raw.schemaName || raw.schema_name || raw.name || parts[2] || "Schema",
+      version: raw.version || parts[3] || "1.0",
+      attributes,
+      issuerName:
+        raw.issuer?.organizationName ||
+        raw.issuer?.name ||
+        raw.issuer_name ||
+        raw.issuerName ||
+        "",
+      credentialDefinitions,
+    };
+  };
+
+  const extractCatalogList = (payload) => {
+    if (!payload) return [];
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload.data)) return payload.data;
+    if (payload.data && Array.isArray(payload.data.results)) return payload.data.results;
+    if (payload.data && Array.isArray(payload.data.schemas)) return payload.data.schemas;
+    if (payload.data && Array.isArray(payload.data.data)) return payload.data.data;
+    if (Array.isArray(payload.results)) return payload.results;
+    if (Array.isArray(payload.schemas)) return payload.schemas;
+    return [];
+  };
+
+  const loadCredentialCatalog = async (force = false) => {
+    if (catalogLoading || (catalogLoaded && !force)) return;
+    setCatalogLoading(true);
+    setCatalogError("");
+    try {
+      const res = await verifierService.getCatalog({ source: "all" });
+      const list = extractCatalogList(res)
+        .map(normalizeCatalogSchema)
+        .filter((s) => s.schemaId || s.schemaName);
+      const seen = new Set();
+      const unique = list.filter((s) => {
+        const key = s.schemaId || `${s.schemaName}:${s.version}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      setCatalogSchemas(unique);
+      setCatalogLoaded(true);
+    } catch (err) {
+      setCatalogError(err?.message || "Failed to load credential catalog");
+      setCatalogSchemas([]);
+    } finally {
+      setCatalogLoading(false);
     }
   };
 
+  const handleRequestModeChange = (mode) => {
+    setRequestMode(mode);
+    if (mode === "catalog") loadCredentialCatalog();
+  };
+
+  const hasRequestedAttribute = (name) =>
+    requestedAttributes.some(
+      (a) => a.name.toLowerCase() === String(name || "").toLowerCase()
+    );
+
+  const addRequestedAttribute = (name, source = "custom") => {
+    const trimmed = String(name || "").trim();
+    if (!trimmed) return;
+    setRequestedAttributes((prev) => {
+      if (prev.some((a) => a.name.toLowerCase() === trimmed.toLowerCase())) return prev;
+      return [...prev, { name: trimmed, label: trimmed, source }];
+    });
+  };
+
+  const removeRequestedAttribute = (name) => {
+    setRequestedAttributes((prev) => prev.filter((a) => a.name !== name));
+  };
+
+  const toggleCatalogAttribute = (attrName) => {
+    setRequestedAttributes((prev) => {
+      const exists = prev.some((a) => a.name === attrName);
+      if (exists) return prev.filter((a) => a.name !== attrName);
+      return [...prev, { name: attrName, label: attrName, source: "catalog" }];
+    });
+  };
+
+  const handleAddCustomAttribute = () => {
+    const value = customAttribute.trim();
+    if (!value) return;
+    if (hasRequestedAttribute(value)) {
+      message.info("Attribute already added");
+      return;
+    }
+    addRequestedAttribute(value, "custom");
+    setCustomAttribute("");
+  };
+
+  const handleCatalogSchemaChange = (schemaId) => {
+    setSelectedCatalogSchemaId(schemaId || null);
+    // Avoid mixing attributes selected from different catalog schemas
+    setRequestedAttributes((prev) => prev.filter((a) => a.source !== "catalog"));
+  };
+
+  const selectAllCatalogAttributes = () => {
+    const schema = catalogSchemas.find((s) => s.schemaId === selectedCatalogSchemaId);
+    if (!schema) return;
+    setRequestedAttributes((prev) => {
+      const existing = new Set(prev.map((a) => a.name));
+      const additions = schema.attributes
+        .filter((attr) => !existing.has(attr))
+        .map((attr) => ({ name: attr, label: attr, source: "catalog" }));
+      return [...prev, ...additions];
+    });
+  };
+
+  const clearCatalogAttributes = () => {
+    setRequestedAttributes((prev) => prev.filter((a) => a.source !== "catalog"));
+  };
+
   const handleOpenCreateRequest = (connectionId = null) => {
-    const targetConnId = connectionId || connections[0]?.connection_id || "conn-v-1";
+    const firstConn = connections[0];
+    const targetConnId =
+      connectionId || firstConn?.connection_id || firstConn?.id || undefined;
     requestForm.setFieldsValue({
       connectionId: targetConnId,
-      requestName: "National Identity / Age Verification",
-      comment: "Required for identity and age compliance check",
+      requestName: "",
+      comment: "",
     });
-    handleTemplateSelect("national-id");
+    setRequestMode("own");
+    setRequestedAttributes([]);
+    setCustomAttribute("");
+    setSelectedCatalogSchemaId(null);
+    setPredicateEnabled(false);
+    setPredicateAttr("age");
+    setPredicateOp(">=");
+    setPredicateVal("18");
+    setHasRestrictions(false);
+    setRestrictionIssuerDid("");
     setIsRequestModalOpen(true);
   };
 
   const handleCreateProofRequest = async (values) => {
+    if (requestedAttributes.length === 0) {
+      message.warning("Please add at least one attribute to reveal");
+      return;
+    }
+    const catalogSchema = catalogSchemas.find(
+      (s) => s.schemaId === selectedCatalogSchemaId
+    );
+    if (!catalogSchema) {
+      message.error("Please select a credential schema first");
+      return;
+    }
+    if (!catalogSchema.credentialDefinitions?.length) {
+      message.error("No credential definitions found for the selected schema");
+      return;
+    }
     setSubmittingRequest(true);
     try {
-      const predicates = predicateEnabled
-        ? [
-            {
-              name: predicateAttr,
-              p_type: predicateOp,
-              p_value: Number(predicateVal) || 18,
-              label: `${predicateAttr} ${predicateOp} ${predicateVal}`,
-            },
-          ]
-        : [];
+      const predicates =
+        predicateEnabled && predicateAttr.trim()
+          ? [
+              {
+                name: predicateAttr.trim(),
+                p_type: predicateOp,
+                p_value: Number(predicateVal) || 0,
+                label: `${predicateAttr} ${predicateOp} ${predicateVal}`,
+              },
+            ]
+          : [];
 
-      const currentTmpl = DEFAULT_CREDENTIAL_TEMPLATES.find((t) => t.id === selectedTemplate);
-      const formattedAttrs = selectedAttributes.map((attrKey) => {
-        const found = currentTmpl?.attributes.find((a) => a.key === attrKey);
-        return { name: attrKey, label: found?.label || attrKey };
-      });
+      const catalogSchema = catalogSchemas.find(
+        (s) => s.schemaId === selectedCatalogSchemaId
+      );
 
-      const restrictions = hasRestrictions && restrictionIssuerDid.trim()
-        ? [{ issuer_did: restrictionIssuerDid.trim() }]
-        : [];
+      const restrictions =
+        hasRestrictions && restrictionIssuerDid.trim()
+          ? [{ issuer_did: restrictionIssuerDid.trim() }]
+          : [];
 
       const payload = {
         name: values.requestName || "Custom Proof Request",
         connectionId: values.connectionId,
-        requestedAttributes: formattedAttrs,
+        schemaId: catalogSchema?.schemaId,
+        credDefId: catalogSchema?.credentialDefinitions?.[0]?.credDefId,
+        requestedAttributes: requestedAttributes.map((attr) => ({
+          name: attr.name,
+          label: attr.label || attr.name,
+        })),
         requestedPredicates: predicates,
         restrictions,
         comment: values.comment || "Proof verification requested via Verifier Portal",
+        auto_verify: !manualReviewEnabled,
       };
 
       const res = await verifierService.createProofRequest(payload);
@@ -269,6 +614,10 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
         message.success("Proof request dispatched to holder wallet!");
         setIsRequestModalOpen(false);
         requestForm.resetFields();
+        setRequestMode("own");
+        setRequestedAttributes([]);
+        setCustomAttribute("");
+        setSelectedCatalogSchemaId(null);
         setPredicateEnabled(false);
         setHasRestrictions(false);
         setRestrictionIssuerDid("");
@@ -289,10 +638,14 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
       if (res?.success) {
         message.success("Cryptographic presentation verified and approved!");
         await loadData();
-        if (selectedRecordForDetails?.presentation_exchange_id === exchangeId) {
+        if (
+          selectedRecordForDetails?.presentation_exchange_id === exchangeId ||
+          selectedRecordForDetails?.id === exchangeId
+        ) {
           const updated = {
             ...selectedRecordForDetails,
             state: "verified",
+            status: "verified",
             verified: "true",
             completed_at: new Date().toISOString(),
           };
@@ -314,10 +667,14 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
       if (res?.success) {
         message.info("Presentation rejected.");
         await loadData();
-        if (selectedRecordForDetails?.presentation_exchange_id === exchangeId) {
+        if (
+          selectedRecordForDetails?.presentation_exchange_id === exchangeId ||
+          selectedRecordForDetails?.id === exchangeId
+        ) {
           const updated = {
             ...selectedRecordForDetails,
             state: "abandoned",
+            status: "rejected",
             verified: "false",
             rejection_reason: reason,
             completed_at: new Date().toISOString(),
@@ -327,6 +684,50 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
       }
     } catch {
       message.error("Failed to reject presentation");
+    }
+  };
+
+  const handleOpenDetails = async (record) => {
+    setSelectedRecordForDetails(record);
+    const exId = record.presentation_exchange_id || record.id || record.presExId;
+    if (exId) {
+      try {
+        const res = await verifierApi.getVerificationStatus(exId);
+        const detailData = res?.data || res;
+        if (detailData && typeof detailData === "object") {
+          setSelectedRecordForDetails((prev) => {
+            const current = prev || record;
+            return {
+              ...current,
+              ...detailData,
+              id: detailData.id || current.id,
+              presentation_exchange_id:
+                detailData.presExId || detailData.id || current.presentation_exchange_id || exId,
+              revealed_attributes:
+                detailData.revealed_attributes ||
+                detailData.revealedClaims ||
+                current.revealed_attributes,
+              revealedClaims:
+                detailData.revealedClaims ||
+                detailData.revealed_attributes ||
+                current.revealedClaims,
+              predicate_results:
+                detailData.predicate_results ||
+                detailData.predicates ||
+                current.predicate_results,
+              state: detailData.state || current.state,
+              verified:
+                detailData.verified !== undefined
+                  ? detailData.verified
+                    ? "true"
+                    : "false"
+                  : current.verified,
+            };
+          });
+        }
+      } catch (err) {
+        console.warn("Could not fetch verification details:", err);
+      }
     }
   };
 
@@ -458,8 +859,8 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
   // Filtered Proof Requests
   const filteredPresentations = presentations.filter((p) => {
     const idStr = p.presentation_exchange_id || p.id || "";
-    const holderStr = p.holder_name || p.their_label || "";
-    const nameStr = p.name || "";
+    const holderStr = getHolderDisplayName(p, connections);
+    const nameStr = p.name || p.requestName || "";
     const matchesSearch =
       idStr.toLowerCase().includes(searchFilter.toLowerCase()) ||
       holderStr.toLowerCase().includes(searchFilter.toLowerCase()) ||
@@ -479,8 +880,8 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
     .filter((p) => p.state === "verified" || p.verified === "true" || p.state === "abandoned" || p.state === "rejected" || p.state === "failed")
     .filter((p) => {
       const idStr = p.presentation_exchange_id || p.id || "";
-      const holderStr = p.holder_name || p.their_label || "";
-      const nameStr = p.name || "";
+      const holderStr = getHolderDisplayName(p, connections);
+      const nameStr = p.name || p.requestName || "";
       const matchesSearch =
         idStr.toLowerCase().includes(historySearch.toLowerCase()) ||
         holderStr.toLowerCase().includes(historySearch.toLowerCase()) ||
@@ -506,43 +907,58 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
   // Proof Requests Columns
   const proofRequestColumns = [
     {
-      title: "Request ID",
-      dataIndex: "presentation_exchange_id",
-      key: "presentation_exchange_id",
-      width: 140,
-      render: (id, record) => {
-        const displayId = id || record.id;
+      title: "Holder Name",
+      key: "holder_name",
+      width: 220,
+      render: (_, record) => {
+        const holderName = getHolderDisplayName(record, connections);
+        const displayId = record.presentation_exchange_id || record.id;
         return (
-          <Tooltip title={`Click to copy: ${displayId}`}>
-            <span
-              className="mono-badge"
-              style={{ cursor: "pointer" }}
-              onClick={() => {
-                navigator.clipboard.writeText(displayId);
-                message.success("Request ID copied");
-              }}
-            >
-              {displayId}
-            </span>
-          </Tooltip>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 13.5, color: "var(--text-primary)" }}>
+              {holderName}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+              <Tooltip title={`Request ID: ${displayId} (Click to copy)`}>
+                <span
+                  className="mono-subtext"
+                  style={{ cursor: "pointer", fontSize: 11, color: "var(--text-muted)" }}
+                  onClick={() => {
+                    navigator.clipboard.writeText(displayId);
+                    message.success("Request ID copied to clipboard");
+                  }}
+                >
+                  ID: {displayId ? `${displayId.slice(0, 14)}...` : "—"}
+                </span>
+              </Tooltip>
+            </div>
+          </div>
         );
       },
     },
     {
       title: "Holder Connection",
       key: "holder",
-      width: 210,
+      width: 200,
       render: (_, record) => {
-        const holderName = record.holder_name || record.their_label || "Connected Holder";
-        const did = record.holder_did || record.their_did;
+        const connId = record.connection_id || record.connectionId;
+        const conn = connections.find((c) => (c.connection_id || c.id) === connId);
+        const connLabel = conn?.their_label || conn?.alias || record.contact_label || record.their_label || "Connected Holder";
+        const did = record.holder_did || record.their_did || conn?.their_did;
         return (
           <div>
-            <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>{holderName}</div>
-            {did && (
-              <div className="mono-subtext" style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                {did.slice(0, 16)}...
+            <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>{connLabel}</div>
+            {did ? (
+              <Tooltip title={`Holder DID: ${did}`}>
+                <div className="mono-subtext" style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                  {did.slice(0, 16)}...
+                </div>
+              </Tooltip>
+            ) : connId ? (
+              <div className="mono-subtext" style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                Conn: {connId.slice(0, 12)}...
               </div>
-            )}
+            ) : null}
           </div>
         );
       },
@@ -555,7 +971,7 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
       render: (name, record) => (
         <div>
           <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>
-            {name || "Credential Verification"}
+            {name || record.requestName || "Credential Verification"}
           </div>
           {record.comment && (
             <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
@@ -570,16 +986,32 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
       key: "claims",
       width: 250,
       render: (_, record) => {
-        const attrsObj = record.presentation_request?.requested_attributes || {};
-        const predsObj = record.presentation_request?.requested_predicates || {};
-        const attrList = Object.values(attrsObj);
-        const predList = Object.values(predsObj);
+        const presReq =
+          record.presentation_request?.indy ||
+          record.presentation_request ||
+          record.by_format?.pres_request?.indy ||
+          record.raw?.by_format?.pres_request?.indy ||
+          record.proof_request ||
+          {};
+
+        const attrsObj = presReq.requested_attributes || record.presentation_request?.requested_attributes || {};
+        const predsObj = presReq.requested_predicates || record.presentation_request?.requested_predicates || {};
+        let attrList = Object.values(attrsObj);
+        let predList = Object.values(predsObj);
+
+        if (attrList.length === 0 && Array.isArray(record.requestedAttributes) && record.requestedAttributes.length > 0) {
+          attrList = record.requestedAttributes.map((a) => (typeof a === "object" ? a : { name: a, label: a }));
+        }
+
+        if (attrList.length === 0 && record.revealedClaims && Object.keys(record.revealedClaims).length > 0) {
+          attrList = Object.keys(record.revealedClaims).map((k) => ({ name: k, label: k }));
+        }
 
         return (
           <div style={{ display: "flex", gap: "5px", flexWrap: "wrap", alignItems: "center" }}>
             {attrList.map((a, i) => (
               <Tag key={i} color="geekblue" style={{ fontSize: 11 }}>
-                {a.label || a.name}
+                {typeof a === "string" ? a : a.label || a.name || a.names?.join(", ")}
               </Tag>
             ))}
             {predList.map((pr, i) => (
@@ -605,16 +1037,19 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
       dataIndex: "created_at",
       key: "created_at",
       width: 120,
-      render: (d) => (
-        <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-          {d ? new Date(d).toLocaleDateString() : "—"}
-        </span>
-      ),
+      render: (d, record) => {
+        const dateVal = d || record.created_at || record.createdAt || record.verifiedAt;
+        return (
+          <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            {dateVal ? new Date(dateVal).toLocaleDateString() : "—"}
+          </span>
+        );
+      },
     },
     {
       title: "Actions",
       key: "actions",
-      width: 210,
+      width: 250,
       align: "right",
       render: (_, record) => {
         const exId = record.presentation_exchange_id || record.id;
@@ -623,25 +1058,44 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
         return (
           <Space size="small" style={{ whiteSpace: "nowrap" }}>
             {isReceived ? (
+              <>
+                <Button
+                  size="small"
+                  type="primary"
+                  icon={<AuditOutlined />}
+                  style={{ background: "#2563EB", borderColor: "#2563EB" }}
+                  onClick={() => handleOpenDetails(record)}
+                >
+                  Review Proof
+                </Button>
+                <Button
+                  size="small"
+                  type="primary"
+                  icon={<CheckOutlined />}
+                  style={{ background: "#10B981", borderColor: "#10B981" }}
+                  onClick={() => handleApproveVerify(exId)}
+                >
+                  Verify
+                </Button>
+                <Button
+                  size="small"
+                  danger
+                  icon={<StopOutlined />}
+                  onClick={() => handleRejectPresentation(exId)}
+                >
+                  Reject
+                </Button>
+              </>
+            ) : (
               <Button
                 size="small"
                 type="primary"
-                icon={<CheckOutlined />}
-                style={{ background: "#10B981", borderColor: "#10B981" }}
-                onClick={() => handleApproveVerify(exId)}
+                icon={<EyeOutlined />}
+                onClick={() => handleOpenDetails(record)}
               >
-                Verify
+                View Details
               </Button>
-            ) : null}
-
-            <Button
-              size="small"
-              type={isReceived ? "default" : "primary"}
-              icon={<EyeOutlined />}
-              onClick={() => setSelectedRecordForDetails(record)}
-            >
-              View Details
-            </Button>
+            )}
 
             <Popconfirm
               title="Archive this verification record?"
@@ -756,25 +1210,53 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
   // Verification History Columns
   const historyColumns = [
     {
-      title: "Exchange ID",
-      dataIndex: "presentation_exchange_id",
-      key: "presentation_exchange_id",
-      width: 140,
-      render: (id) => <span className="mono-badge">{id}</span>,
+      title: "Holder Name",
+      key: "holder_name",
+      width: 220,
+      render: (_, record) => {
+        const holderName = getHolderDisplayName(record, connections);
+        const displayId = record.presentation_exchange_id || record.id;
+        return (
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 13.5, color: "var(--text-primary)" }}>
+              {holderName}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+              <Tooltip title={`Exchange ID: ${displayId} (Click to copy)`}>
+                <span
+                  className="mono-subtext"
+                  style={{ cursor: "pointer", fontSize: 11, color: "var(--text-muted)" }}
+                  onClick={() => {
+                    navigator.clipboard.writeText(displayId);
+                    message.success("Exchange ID copied");
+                  }}
+                >
+                  ID: {displayId ? `${displayId.slice(0, 14)}...` : "—"}
+                </span>
+              </Tooltip>
+            </div>
+          </div>
+        );
+      },
     },
     {
       title: "Verification Request",
       dataIndex: "name",
       key: "name",
       width: 240,
-      render: (name, record) => (
-        <div>
-          <div style={{ fontWeight: 600 }}>{name}</div>
-          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-            Holder: {record.holder_name || record.their_label}
+      render: (name, record) => {
+        const connId = record.connection_id || record.connectionId;
+        const conn = connections.find((c) => (c.connection_id || c.id) === connId);
+        const connLabel = conn?.their_label || conn?.alias || record.contact_label || record.their_label || "Active Peer";
+        return (
+          <div>
+            <div style={{ fontWeight: 600 }}>{name || record.requestName || "Credential Verification"}</div>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+              Connection: {connLabel}
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       title: "Outcome",
@@ -826,7 +1308,7 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
       width: 140,
       align: "right",
       render: (_, record) => (
-        <Button size="small" icon={<EyeOutlined />} onClick={() => setSelectedRecordForDetails(record)}>
+        <Button size="small" icon={<EyeOutlined />} onClick={() => handleOpenDetails(record)}>
           View Audit Details
         </Button>
       ),
@@ -839,6 +1321,16 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
     history: "Verifier Portal • Verification History",
     connections: "Verifier Portal • Holder Connections",
   };
+
+  const activeHolderConnections = connections.filter((c) => {
+    const state = String(c.state || c.rfc23_state || "").toLowerCase();
+    return !state || ["active", "completed"].includes(state);
+  });
+  const holderConnections = activeHolderConnections.length
+    ? activeHolderConnections
+    : connections;
+  const selectedCatalogSchema =
+    catalogSchemas.find((s) => s.schemaId === selectedCatalogSchemaId) || null;
 
   return (
     <DashboardLayout title={tabTitles[activeTab] || "Verifier Portal"} role="verifier" actions={didBadgeAction}>
@@ -1315,7 +1807,7 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
           open={isRequestModalOpen}
           onCancel={() => setIsRequestModalOpen(false)}
           footer={null}
-          width={680}
+          width={760}
           destroyOnHidden
         >
           <Form
@@ -1330,46 +1822,258 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
               label="Recipient Holder Connection"
               rules={[{ required: true, message: "Please select a holder connection" }]}
             >
-              <Select placeholder="Select connected holder wallet">
-                {connections.map((c) => (
+              <Select
+                placeholder="Select connected holder wallet"
+                showSearch
+                optionFilterProp="children"
+              >
+                {holderConnections.map((c) => (
                   <Option key={c.connection_id || c.id} value={c.connection_id || c.id}>
-                    {c.their_label || "Connected Holder"} {c.role ? `(${c.role})` : ""} — {c.their_did ? `${c.their_did.slice(0, 16)}...` : ""}
+                    {c.their_label || c.holderName || "Connected Holder"} {c.role ? `(${c.role})` : ""} — {c.their_did ? `${c.their_did.slice(0, 16)}...` : ""}
                   </Option>
                 ))}
               </Select>
             </Form.Item>
 
-            {/* 2. Predefined Policy Templates */}
+            {/* 2. Attribute source: Own Template vs Credential Catalog */}
             <div style={{ marginBottom: 16 }}>
               <label style={{ display: "block", marginBottom: 6, fontWeight: 600, fontSize: 13 }}>
-                Credential Verification Template:
+                Attribute Source:
               </label>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                {DEFAULT_CREDENTIAL_TEMPLATES.map((tmpl) => (
+                {[
+                  {
+                    id: "own",
+                    title: "Own Template",
+                    desc: "Add your own requested attributes manually",
+                  },
+                  {
+                    id: "catalog",
+                    title: "Credential Catalog",
+                    desc: "Pick a schema and select its attributes",
+                  },
+                ].map((opt) => (
                   <div
-                    key={tmpl.id}
-                    onClick={() => handleTemplateSelect(tmpl.id)}
+                    key={opt.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleRequestModeChange(opt.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleRequestModeChange(opt.id);
+                      }
+                    }}
                     style={{
-                      padding: "8px 12px",
+                      padding: "10px 12px",
                       borderRadius: 8,
-                      border: selectedTemplate === tmpl.id ? "2px solid #2563EB" : "1px solid var(--border-color, #e2e8f0)",
-                      background: selectedTemplate === tmpl.id ? "#EFF6FF" : "var(--surface-2, #f8fafc)",
+                      border:
+                        requestMode === opt.id
+                          ? "2px solid #2563EB"
+                          : "1px solid var(--border-color, #e2e8f0)",
+                      background:
+                        requestMode === opt.id
+                          ? "#EFF6FF"
+                          : "var(--surface-2, #f8fafc)",
                       cursor: "pointer",
                       transition: "all 0.15s ease",
                     }}
                   >
-                    <div style={{ fontWeight: 600, fontSize: 12.5, color: selectedTemplate === tmpl.id ? "#2563EB" : "var(--text-primary)" }}>
-                      {tmpl.name}
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        fontSize: 12.5,
+                        color:
+                          requestMode === opt.id
+                            ? "#2563EB"
+                            : "var(--text-primary)",
+                      }}
+                    >
+                      {opt.title}
                     </div>
                     <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-                      {tmpl.attributes.length} attributes configured
+                      {opt.desc}
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* 3. Title & Purpose */}
+            {/* 2b. Credential Catalog picker */}
+            {requestMode === "catalog" && (
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", marginBottom: 6, fontWeight: 600, fontSize: 13 }}>
+                  Credential Catalog Schema:
+                </label>
+                <Select
+                  showSearch
+                  allowClear
+                  loading={catalogLoading}
+                  placeholder={
+                    catalogLoading
+                      ? "Loading credential catalog..."
+                      : "Select a schema from the catalog"
+                  }
+                  value={selectedCatalogSchemaId || undefined}
+                  onChange={handleCatalogSchemaChange}
+                  optionFilterProp="label"
+                  notFoundContent={
+                    catalogLoading ? "Loading..." : catalogError || "No schemas found"
+                  }
+                  options={catalogSchemas.map((s) => ({
+                    value: s.schemaId,
+                    label: `${s.schemaName} (v${s.version})${s.issuerName ? ` — ${s.issuerName}` : ""}`,
+                  }))}
+                  style={{ width: "100%" }}
+                />
+
+                {catalogError && !catalogLoading && (
+                  <Alert
+                    type="warning"
+                    showIcon
+                    message={catalogError}
+                    style={{ marginTop: 8 }}
+                  />
+                )}
+
+                {selectedCatalogSchema && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      border: "1px solid #DBEAFE",
+                      background: "#F8FBFF",
+                      borderRadius: 10,
+                      padding: 14,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 8,
+                        flexWrap: "wrap",
+                        marginBottom: 8,
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13 }}>
+                          {selectedCatalogSchema.schemaName}
+                        </div>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                          v{selectedCatalogSchema.version}
+                          {selectedCatalogSchema.issuerName
+                            ? ` • ${selectedCatalogSchema.issuerName}`
+                            : ""}
+                        </div>
+                      </div>
+                      <Space size="small">
+                        <Button
+                          size="small"
+                          type="link"
+                          style={{ padding: 0 }}
+                          onClick={selectAllCatalogAttributes}
+                        >
+                          Select All
+                        </Button>
+                        <Button
+                          size="small"
+                          type="link"
+                          style={{ padding: 0 }}
+                          onClick={clearCatalogAttributes}
+                        >
+                          Clear
+                        </Button>
+                      </Space>
+                    </div>
+
+                    {selectedCatalogSchema.credentialDefinitions?.[0]?.credDefId && (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "var(--text-muted)",
+                          marginBottom: 10,
+                          wordBreak: "break-all",
+                        }}
+                      >
+                        Cred Def: {selectedCatalogSchema.credentialDefinitions[0].credDefId}
+                      </div>
+                    )}
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+                        gap: 6,
+                      }}
+                    >
+                      {selectedCatalogSchema.attributes.map((attr) => (
+                        <Checkbox
+                          key={attr}
+                          checked={hasRequestedAttribute(attr)}
+                          onChange={() => toggleCatalogAttribute(attr)}
+                        >
+                          <span style={{ fontSize: 12.5 }}>{attr}</span>
+                        </Checkbox>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 3. Requested Attributes to Reveal */}
+            <div style={{ background: "var(--surface-2, #f8fafc)", border: "1px solid var(--border-color, #e2e8f0)", padding: 14, borderRadius: 10, marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
+                <label style={{ fontWeight: 600, fontSize: 13, margin: 0 }}>
+                  Requested Attributes to Reveal:
+                </label>
+                <Tag color="blue" style={{ marginInlineEnd: 0 }}>
+                  {requestedAttributes.length} selected
+                </Tag>
+              </div>
+
+              <Space.Compact style={{ width: "100%", marginBottom: 12 }}>
+                <Input
+                  placeholder="Add your own attribute name (e.g. full_name)"
+                  value={customAttribute}
+                  onChange={(e) => setCustomAttribute(e.target.value)}
+                  onPressEnter={(e) => {
+                    e.preventDefault();
+                    handleAddCustomAttribute();
+                  }}
+                  allowClear
+                />
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={handleAddCustomAttribute}
+                >
+                  Add
+                </Button>
+              </Space.Compact>
+
+              {requestedAttributes.length === 0 ? (
+                <div style={{ fontSize: 12, color: "var(--text-muted)", padding: "6px 0" }}>
+                  No attributes selected yet. Add your own or pick a credential catalog schema.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {requestedAttributes.map((attr) => (
+                    <Tag
+                      key={attr.name}
+                      closable
+                      color={attr.source === "catalog" ? "blue" : "geekblue"}
+                      onClose={() => removeRequestedAttribute(attr.name)}
+                      style={{ marginInlineEnd: 0 }}
+                    >
+                      {attr.label || attr.name}
+                    </Tag>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 4. Title & Purpose */}
             <Form.Item
               name="requestName"
               label="Proof Inquiry Title"
@@ -1384,41 +2088,6 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
                 placeholder="Explain why this credential presentation is being requested..."
               />
             </Form.Item>
-
-            {/* 4. Attribute Selection */}
-            <div style={{ background: "var(--surface-2, #f8fafc)", border: "1px solid var(--border-color, #e2e8f0)", padding: 14, borderRadius: 10, marginBottom: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <label style={{ fontWeight: 600, fontSize: 13, margin: 0 }}>
-                  Requested Attributes to Reveal:
-                </label>
-                <Space size="small">
-                  <Button
-                    size="small"
-                    type="link"
-                    style={{ padding: 0 }}
-                    onClick={() => {
-                      const tmpl = DEFAULT_CREDENTIAL_TEMPLATES.find((t) => t.id === selectedTemplate);
-                      setSelectedAttributes(tmpl?.attributes.map((a) => a.key) || []);
-                    }}
-                  >
-                    Select All
-                  </Button>
-                </Space>
-              </div>
-
-              {(() => {
-                const tmpl = DEFAULT_CREDENTIAL_TEMPLATES.find((t) => t.id === selectedTemplate);
-                const options = tmpl?.attributes.map((a) => ({ label: a.label, value: a.key })) || [];
-                return (
-                  <Checkbox.Group
-                    options={options}
-                    value={selectedAttributes}
-                    onChange={setSelectedAttributes}
-                    style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}
-                  />
-                );
-              })()}
-            </div>
 
             {/* 5. Zero-Knowledge Predicates */}
             <div
@@ -1483,6 +2152,32 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
               )}
             </div>
 
+            {/* 7. Verification Review Policy */}
+            <div
+              style={{
+                background: manualReviewEnabled ? "#EFF6FF" : "var(--surface-2, #f8fafc)",
+                border: manualReviewEnabled ? "1px solid #BFDBFE" : "1px solid var(--border-color, #e2e8f0)",
+                borderRadius: 10,
+                padding: 14,
+                marginBottom: 16,
+                transition: "all 0.2s ease",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <strong style={{ fontSize: 13, color: manualReviewEnabled ? "#1D4ED8" : "var(--text-primary)" }}>
+                    Manual Verifier Review &amp; Confirmation
+                  </strong>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                    {manualReviewEnabled
+                      ? "Holder presentations will pause at 'Presentation Received' for verifier manual review before confirming."
+                      : "Presentations will be automatically verified as soon as holder submits proof."}
+                  </div>
+                </div>
+                <Switch checked={manualReviewEnabled} onChange={setManualReviewEnabled} />
+              </div>
+            </div>
+
 
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
@@ -1519,78 +2214,85 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
               </div>
             </div>
           }
-          open={!!selectedRecordForDetails}
+          open={Boolean(selectedRecordForDetails)}
           onCancel={() => {
             setSelectedRecordForDetails(null);
             setDecodedClaimsData(null);
           }}
-          footer={[
-            selectedRecordForDetails?.state !== "verified" &&
-              selectedRecordForDetails?.state !== "abandoned" && (
-                <Button
-                  key="wait"
-                  icon={<LoadingOutlined />}
-                  loading={waitingResult}
-                  onClick={() => {
-                    handleWaitResult(
-                      selectedRecordForDetails.presentation_exchange_id || selectedRecordForDetails.id
-                    );
-                  }}
-                >
-                  Wait for Result (Live Poll)
-                </Button>
-              ),
-            <Button
-              key="claims"
-              icon={<SyncOutlined />}
-              loading={loadingClaims}
-              onClick={() => {
-                handleFetchClaims(
-                  selectedRecordForDetails.presentation_exchange_id || selectedRecordForDetails.id
-                );
-              }}
-            >
-              Decode Claims via Engine
-            </Button>,
-            selectedRecordForDetails?.state === "presentation_received" && (
-              <Button
-                key="verify"
-                type="primary"
-                icon={<CheckOutlined />}
-                style={{ background: "#10B981", borderColor: "#10B981" }}
-                onClick={() => {
-                  handleApproveVerify(selectedRecordForDetails.presentation_exchange_id || selectedRecordForDetails.id);
-                }}
-              >
-                Verify Presentation
-              </Button>
-            ),
-            selectedRecordForDetails?.state === "presentation_received" && (
-              <Button
-                key="reject"
-                danger
-                icon={<StopOutlined />}
-                onClick={() => {
-                  handleRejectPresentation(selectedRecordForDetails.presentation_exchange_id || selectedRecordForDetails.id);
-                }}
-              >
-                Reject
-              </Button>
-            ),
-            <Button
-              key="close"
-              onClick={() => {
-                setSelectedRecordForDetails(null);
-                setDecodedClaimsData(null);
-              }}
-            >
-              Close
-            </Button>,
-          ].filter(Boolean)}
+          destroyOnHidden
+          footer={
+            !selectedRecordForDetails
+              ? null
+              : [
+                  selectedRecordForDetails.state !== "verified" &&
+                    selectedRecordForDetails.state !== "abandoned" &&
+                    selectedRecordForDetails.state !== "presentation_received" && (
+                      <Button
+                        key="wait"
+                        icon={<LoadingOutlined />}
+                        loading={waitingResult}
+                        onClick={() => {
+                          handleWaitResult(
+                            selectedRecordForDetails?.presentation_exchange_id || selectedRecordForDetails?.id
+                          );
+                        }}
+                      >
+                        Wait for Result (Live Poll)
+                      </Button>
+                    ),
+                  <Button
+                    key="claims"
+                    icon={<SyncOutlined />}
+                    loading={loadingClaims}
+                    onClick={() => {
+                      handleFetchClaims(
+                        selectedRecordForDetails?.presentation_exchange_id || selectedRecordForDetails?.id
+                      );
+                    }}
+                  >
+                    Decode Claims via Engine
+                  </Button>,
+                  selectedRecordForDetails.state === "presentation_received" && (
+                    <Button
+                      key="verify"
+                      type="primary"
+                      icon={<CheckOutlined />}
+                      style={{ background: "#10B981", borderColor: "#10B981" }}
+                      onClick={() => {
+                        handleApproveVerify(selectedRecordForDetails?.presentation_exchange_id || selectedRecordForDetails?.id);
+                      }}
+                    >
+                      Confirm &amp; Verify Presentation
+                    </Button>
+                  ),
+                  selectedRecordForDetails.state === "presentation_received" && (
+                    <Button
+                      key="reject"
+                      danger
+                      icon={<StopOutlined />}
+                      onClick={() => {
+                        handleRejectPresentation(selectedRecordForDetails?.presentation_exchange_id || selectedRecordForDetails?.id);
+                      }}
+                    >
+                      Reject Presentation
+                    </Button>
+                  ),
+                  <Button
+                    key="close"
+                    type="default"
+                    onClick={() => {
+                      setSelectedRecordForDetails(null);
+                      setDecodedClaimsData(null);
+                    }}
+                  >
+                    Close
+                  </Button>,
+                ].filter(Boolean)
+          }
           width={700}
         >
           {selectedRecordForDetails && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 18, marginTop: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
               {/* Verification Progress Timeline */}
               <div style={{ background: "var(--surface-2, #f8fafc)", padding: "16px 20px", borderRadius: 10, border: "1px solid var(--border-color, #e2e8f0)" }}>
                 <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 12, letterSpacing: "0.5px" }}>
@@ -1645,14 +2347,30 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
                 />
               )}
 
+              {selectedRecordForDetails.state === "presentation_received" && (
+                <Alert
+                  type="info"
+                  showIcon
+                  icon={<AuditOutlined style={{ fontSize: 18, color: "#2563EB" }} />}
+                  message={<strong style={{ fontSize: 13.5 }}>Holder Attributes Presented for Review</strong>}
+                  description="The holder has submitted the requested credential claims. Please review the disclosed attributes below. When satisfied, click 'Confirm & Verify' to execute cryptographic ledger verification, or 'Reject' to decline."
+                  style={{ background: "#EFF6FF", borderColor: "#BFDBFE" }}
+                />
+              )}
+
               {/* Summary Metadata */}
               <Descriptions bordered size="small" column={2} style={{ borderRadius: 8 }}>
-                <Descriptions.Item label="Holder Connection" span={2}>
-                  <strong>{selectedRecordForDetails.holder_name || selectedRecordForDetails.their_label || "Connected Holder"}</strong>
-                  {selectedRecordForDetails.holder_did && (
-                    <span className="mono-subtext" style={{ marginLeft: 8 }}>
-                      ({selectedRecordForDetails.holder_did})
+                <Descriptions.Item label="Holder Name" span={2}>
+                  <strong style={{ fontSize: 13.5 }}>{getHolderDisplayName(selectedRecordForDetails, connections)}</strong>
+                  {selectedRecordForDetails.presentation_exchange_id && (
+                    <span className="mono-subtext" style={{ marginLeft: 10 }}>
+                      (ID: {selectedRecordForDetails.presentation_exchange_id})
                     </span>
+                  )}
+                  {selectedRecordForDetails.holder_did && (
+                    <div className="mono-subtext" style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                      DID: {selectedRecordForDetails.holder_did}
+                    </div>
                   )}
                 </Descriptions.Item>
                 <Descriptions.Item label="Current Status">
@@ -1674,134 +2392,91 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
               </Descriptions>
 
               {/* Disclosed & Verified Claims */}
-              <Card
-                size="small"
-                title={
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span>Disclosed Credential Attributes</span>
-                    <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text-muted)" }}>
-                      Selective disclosure verified
-                    </span>
-                  </div>
-                }
-              >
-                {selectedRecordForDetails.presentation?.requested_proof?.revealed_attrs ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {Object.entries(selectedRecordForDetails.presentation.requested_proof.revealed_attrs).map(([key, val]) => (
-                      <div
-                        key={key}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          padding: "6px 8px",
-                          borderBottom: "1px solid rgba(0,0,0,0.04)",
-                        }}
-                      >
-                        <span style={{ fontWeight: 600, fontSize: 13 }}>
-                          {val.label || key}
+              {(() => {
+                const disclosedAttrs = getDisclosedAttributes(selectedRecordForDetails);
+                return (
+                  <Card
+                    size="small"
+                    title={
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span>Disclosed Credential Attributes {disclosedAttrs.length > 0 ? `(${disclosedAttrs.length})` : ""}</span>
+                        <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text-muted)" }}>
+                          Selective disclosure verified
                         </span>
-                        <Tag color="geekblue" style={{ fontSize: 12 }}>
-                          {typeof val === "object" ? val.raw : String(val)}
-                        </Tag>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div style={{ padding: "12px 0", color: "var(--text-secondary)", fontSize: 13 }}>
-                    <InfoCircleOutlined style={{ marginRight: 6, color: "#2563EB" }} />
-                    {selectedRecordForDetails.state === "request_sent"
-                      ? "Awaiting holder wallet submission. Requested attributes will appear here once presented."
-                      : "No raw attributes disclosed."}
-                  </div>
-                )}
-              </Card>
-
-              {/* Decoded Claims via Engine Extractor */}
-              {decodedClaimsData && (
-                <Card
-                  size="small"
-                  style={{ borderColor: "#10b981", background: "#f0fdf4" }}
-                  title={
-                    <span style={{ color: "#15803d", fontWeight: 700 }}>
-                      ✓ Decoded Claims & ZK Assertions (via Engine Extractor)
-                    </span>
-                  }
-                >
-                  {decodedClaimsData.revealed_claims &&
-                    Object.keys(decodedClaimsData.revealed_claims).length > 0 && (
-                      <div style={{ marginBottom: 12 }}>
-                        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: "#166534" }}>
-                          Disclosed Claims:
-                        </div>
-                        {Object.entries(decodedClaimsData.revealed_claims).map(([k, v]) => (
+                    }
+                  >
+                    {disclosedAttrs.length > 0 ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {disclosedAttrs.map((item) => (
                           <div
-                            key={k}
+                            key={item.label}
                             style={{
                               display: "flex",
                               justifyContent: "space-between",
-                              padding: "4px 0",
-                              borderBottom: "1px dashed #bbf7d0",
+                              alignItems: "center",
+                              padding: "8px 12px",
+                              background: "var(--surface-2, #f8fafc)",
+                              borderRadius: 6,
+                              border: "1px solid var(--border-color, #e2e8f0)",
                             }}
                           >
-                            <span style={{ fontWeight: 500 }}>{k}</span>
-                            <Tag color="green">{String(v)}</Tag>
+                            <span style={{ fontWeight: 600, fontSize: 13, color: "var(--text-primary)" }}>
+                              {item.label}
+                            </span>
+                            <Tag color="geekblue" style={{ fontSize: 12.5, padding: "2px 10px", margin: 0, fontWeight: 500 }}>
+                              {item.value}
+                            </Tag>
                           </div>
                         ))}
                       </div>
-                    )}
-
-                  {decodedClaimsData.satisfied_predicates &&
-                    Object.keys(decodedClaimsData.satisfied_predicates).length > 0 && (
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: "#166534" }}>
-                          Satisfied Zero-Knowledge Predicates:
-                        </div>
-                        {Object.entries(decodedClaimsData.satisfied_predicates).map(([k, v]) => (
-                          <div
-                            key={k}
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              padding: "4px 0",
-                            }}
-                          >
-                            <span style={{ fontWeight: 500 }}>{k}</span>
-                            <Tag color="purple">{String(v)}</Tag>
-                          </div>
-                        ))}
+                    ) : (
+                      <div style={{ padding: "12px 0", color: "var(--text-secondary)", fontSize: 13 }}>
+                        <InfoCircleOutlined style={{ marginRight: 6, color: "#2563EB" }} />
+                        {selectedRecordForDetails.state === "request_sent"
+                          ? "Awaiting holder wallet submission. Requested attributes will appear here once presented."
+                          : "No raw attributes disclosed or attributes are concealed in zero-knowledge."}
                       </div>
                     )}
-                </Card>
-              )}
+                  </Card>
+                );
+              })()}
 
               {/* Predicate Proofs */}
-              {selectedRecordForDetails.presentation?.requested_proof?.predicates &&
-                Object.keys(selectedRecordForDetails.presentation.requested_proof.predicates).length > 0 && (
+              {(() => {
+                const preds = getPredicateResults(selectedRecordForDetails);
+                if (!preds || preds.length === 0) return null;
+                return (
                   <Card size="small" title="Zero-Knowledge Predicates (Data Concealed)">
-                    {Object.entries(selectedRecordForDetails.presentation.requested_proof.predicates).map(([key, pred]) => (
-                      <div
-                        key={key}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          padding: "6px 8px",
-                        }}
-                      >
-                        <div>
-                          <strong style={{ fontSize: 13 }}>{pred.label || key}</strong>
-                          <div style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
-                            {pred.detail || "Cryptographically proven via zero-knowledge proof"}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {preds.map((pred) => (
+                        <div
+                          key={pred.name}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            padding: "8px 12px",
+                            background: "#f0fdf4",
+                            borderRadius: 6,
+                            border: "1px solid #bbf7d0",
+                          }}
+                        >
+                          <div>
+                            <strong style={{ fontSize: 13, color: "#166534" }}>{pred.name}</strong>
+                            <div style={{ fontSize: 11.5, color: "#15803d" }}>
+                              Condition: {pred.condition}
+                            </div>
                           </div>
+                          <Tag color="green" icon={<CheckCircleOutlined />}>
+                            SATISFIED (ZKP)
+                          </Tag>
                         </div>
-                        <Tag color="green" icon={<CheckCircleOutlined />}>
-                          SATISFIED (ZKP)
-                        </Tag>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </Card>
-                )}
+                );
+              })()}
 
               {/* Decoded Claims via Engine Extractor */}
               {decodedClaimsData && (
@@ -1862,41 +2537,52 @@ const VerifierDashboard = ({ activeTab = "dashboard" }) => {
               )}
 
               {/* Cryptographic Checks Breakdown */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", color: "var(--text-muted)" }}>
-                  Cryptographic Verification Checks
-                </div>
+              {(() => {
+                const state = selectedRecordForDetails.state;
+                const isVerified = state === "verified" || selectedRecordForDetails.verified === "true";
+                const isReceived = state === "presentation_received";
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", color: "var(--text-muted)" }}>
+                      Cryptographic Verification Checks
+                    </div>
 
-                <div className={`check-result-box ${selectedRecordForDetails.presentation ? "pass" : "warn"}`}>
-                  <CheckCircleOutlined style={{ marginTop: 2, fontSize: 16 }} />
-                  <div>
-                    <strong>Cryptographic Proof Signature:</strong>{" "}
-                    {selectedRecordForDetails.presentation
-                      ? "Valid CL-Signature authenticated against Issuer Public Key."
-                      : "Pending presentation receipt from holder."}
-                  </div>
-                </div>
+                    <div className={`check-result-box ${isVerified ? "pass" : isReceived ? "info" : "warn"}`}>
+                      <CheckCircleOutlined style={{ marginTop: 2, fontSize: 16 }} />
+                      <div>
+                        <strong>Cryptographic Proof Signature:</strong>{" "}
+                        {isVerified
+                          ? "Valid CL-Signature authenticated against Issuer Public Key and ledger."
+                          : isReceived
+                          ? "Proof presentation received from holder. Ready for cryptographic ledger verification."
+                          : "Pending presentation receipt from holder."}
+                      </div>
+                    </div>
 
-                <div className={`check-result-box ${selectedRecordForDetails.presentation ? "pass" : "warn"}`}>
-                  <CheckCircleOutlined style={{ marginTop: 2, fontSize: 16 }} />
-                  <div>
-                    <strong>Schema & Credential Definition:</strong>{" "}
-                    {selectedRecordForDetails.presentation
-                      ? "Verified matches approved template schema on ledger anchor."
-                      : "Pending schema binding verification."}
-                  </div>
-                </div>
+                    <div className={`check-result-box ${isVerified ? "pass" : isReceived ? "info" : "warn"}`}>
+                      <CheckCircleOutlined style={{ marginTop: 2, fontSize: 16 }} />
+                      <div>
+                        <strong>Schema & Credential Definition:</strong>{" "}
+                        {isVerified || isReceived
+                          ? "Verified matches approved template schema on ledger anchor."
+                          : "Pending schema binding verification."}
+                      </div>
+                    </div>
 
-                <div className={`check-result-box ${selectedRecordForDetails.presentation ? "pass" : "warn"}`}>
-                  <CheckCircleOutlined style={{ marginTop: 2, fontSize: 16 }} />
-                  <div>
-                    <strong>Non-Revocation Accumulator Status:</strong>{" "}
-                    {selectedRecordForDetails.presentation
-                      ? "Active. Accumulator witness confirms credential has not been revoked."
-                      : "Pending real-time revocation accumulator check."}
+                    <div className={`check-result-box ${isVerified ? "pass" : isReceived ? "info" : "warn"}`}>
+                      <CheckCircleOutlined style={{ marginTop: 2, fontSize: 16 }} />
+                      <div>
+                        <strong>Non-Revocation Accumulator Status:</strong>{" "}
+                        {isVerified
+                          ? "Active. Accumulator witness confirms credential has not been revoked."
+                          : isReceived
+                          ? "Accumulator witness checked against cryptographic state."
+                          : "Pending real-time revocation accumulator check."}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Advanced Technical Details Collapsible */}
               <Collapse

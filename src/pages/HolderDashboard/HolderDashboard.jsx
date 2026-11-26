@@ -42,6 +42,45 @@ import "./HolderDashboard.css";
 
 const { Option } = Select;
 
+/**
+ * Robust helper to extract claim value from a credential regardless of naming case or container
+ */
+export const getCredentialClaimValue = (cred, attrName) => {
+  if (!cred || !attrName) return undefined;
+  const rawKey = String(attrName).trim();
+  const normalizedSearch = rawKey.toLowerCase().replace(/[\s_-]+/g, "");
+
+  const containers = [
+    cred.attrs,
+    cred.attributes,
+    cred.claims,
+    cred.raw?.attrs,
+    cred.raw?.attributes,
+  ];
+
+  for (const container of containers) {
+    if (!container) continue;
+    if (typeof container === "object" && !Array.isArray(container)) {
+      if (container[rawKey] !== undefined) return container[rawKey];
+      for (const [k, v] of Object.entries(container)) {
+        if (k.toLowerCase().replace(/[\s_-]+/g, "") === normalizedSearch) {
+          return v;
+        }
+      }
+    } else if (Array.isArray(container)) {
+      for (const item of container) {
+        if (typeof item === "object" && item !== null) {
+          const k = item.name || item.name_tag || item.key;
+          if (k && (k === rawKey || k.toLowerCase().replace(/[\s_-]+/g, "") === normalizedSearch)) {
+            return item.value !== undefined ? item.value : "";
+          }
+        }
+      }
+    }
+  }
+  return undefined;
+};
+
 const HolderDashboard = ({ activeTab = "dashboard" }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -109,20 +148,38 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
   // When opening Proof Request review modal, pick the best matching credential
   useEffect(() => {
     if (selectedProofForReview && credentials.length > 0) {
-      const reqAttrs = selectedProofForReview.requestedAttributes || [];
+      let reqAttrs = selectedProofForReview.requestedAttributes || [];
+
+      // Determine matching credential
       let bestCred = credentials[0];
       let maxMatch = -1;
 
-      credentials.forEach((c) => {
-        const matchCount = reqAttrs.filter((a) => c.attrs && c.attrs[a] !== undefined).length;
-        if (matchCount > maxMatch) {
-          maxMatch = matchCount;
-          bestCred = c;
+      // If requestedAttributes is empty, check for matching schema name or fallback to first credential
+      if (reqAttrs.length === 0) {
+        const found = credentials.find((c) =>
+          selectedProofForReview.name &&
+          c.credentialDefinition &&
+          c.credentialDefinition.toLowerCase().includes(selectedProofForReview.name.toLowerCase())
+        );
+        if (found) bestCred = found;
+        if (bestCred?.attrs) {
+          reqAttrs = Object.keys(bestCred.attrs);
         }
-      });
+      } else {
+        credentials.forEach((c) => {
+          const matchCount = reqAttrs.filter((a) => getCredentialClaimValue(c, a) !== undefined).length;
+          if (matchCount > maxMatch) {
+            maxMatch = matchCount;
+            bestCred = c;
+          }
+        });
+      }
 
       if (bestCred) {
         setSelectedCredentialIdForProof(bestCred.id);
+        if (reqAttrs.length === 0 && bestCred.attrs) {
+          reqAttrs = Object.keys(bestCred.attrs);
+        }
       }
 
       // Default all requested attributes to revealed (disclose raw claim)
@@ -186,6 +243,10 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
   // Submit proof presentation handler
   const handlePresentProof = async () => {
     if (!selectedProofForReview) return;
+    if (!selectedCredentialIdForProof) {
+      message.warning("Please select a wallet credential to satisfy this request");
+      return;
+    }
     try {
       const res = await holderService.respondToProofRequest(
         selectedProofForReview.id,
@@ -193,6 +254,7 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
         {
           revealedAttributes,
           predicates: selectedProofForReview.requestedPredicates || [],
+          proofRequest: selectedProofForReview,
           timestamp: new Date().toISOString(),
           predicatesSatisfied: true,
         }
@@ -203,9 +265,11 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
         );
         setSelectedProofForReview(null);
         loadData();
+      } else {
+        message.error(res?.message || "Failed to submit presentation");
       }
-    } catch {
-      message.error("Failed to submit presentation");
+    } catch (err) {
+      message.error(err?.message || "Failed to submit presentation");
     }
   };
 
@@ -407,13 +471,22 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
       dataIndex: "requestedAttributes",
       key: "requestedAttributes",
       width: 260,
-      render: (attrs) => (
-        <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
-          {attrs?.map((a) => (
-            <Tag key={a} color="blue">{a}</Tag>
-          ))}
-        </div>
-      ),
+      render: (attrs, record) => {
+        let displayAttrs = attrs || [];
+        if (displayAttrs.length === 0 && credentials.length > 0) {
+          const matching = credentials.find((c) =>
+            record.name && c.credentialDefinition?.toLowerCase().includes(record.name.toLowerCase())
+          ) || credentials[0];
+          if (matching?.attrs) displayAttrs = Object.keys(matching.attrs);
+        }
+        return (
+          <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
+            {displayAttrs.map((a) => (
+              <Tag key={a} color="blue">{a}</Tag>
+            ))}
+          </div>
+        );
+      },
     },
     {
       title: "Status",
@@ -510,12 +583,15 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
   // Proof Request satisfaction analysis
   const currentProofCredential =
     credentials.find((c) => c.id === selectedCredentialIdForProof) || credentials[0];
-  const requestedAttrs = selectedProofForReview?.requestedAttributes || [];
+  let requestedAttrs = selectedProofForReview?.requestedAttributes || [];
+  if (requestedAttrs.length === 0 && currentProofCredential?.attrs) {
+    requestedAttrs = Object.keys(currentProofCredential.attrs);
+  }
   const requestedPredicates = selectedProofForReview?.requestedPredicates || [];
   const missingAttrs = requestedAttrs.filter(
-    (a) => !currentProofCredential?.attrs || currentProofCredential.attrs[a] === undefined
+    (a) => getCredentialClaimValue(currentProofCredential, a) === undefined
   );
-  const isFullMatch = missingAttrs.length === 0;
+  const isFullMatch = requestedAttrs.length > 0 && missingAttrs.length === 0;
 
   return (
     <DashboardLayout title={tabTitles[activeTab] || "Digital Identity Wallet"} role="holder" actions={didBadgeAction}>
@@ -1176,7 +1252,7 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
                   style={{ width: "100%" }}
                 >
                   {credentials.map((c) => {
-                    const matchCount = requestedAttrs.filter((a) => c.attrs && c.attrs[a] !== undefined).length;
+                    const matchCount = requestedAttrs.filter((a) => getCredentialClaimValue(c, a) !== undefined).length;
                     return (
                       <Option key={c.id} value={c.id}>
                         {c.credentialDefinition || c.type} — Issued by {c.issuerName || c.issuer} ({matchCount}/{requestedAttrs.length} claims match)
@@ -1219,9 +1295,9 @@ const HolderDashboard = ({ activeTab = "dashboard" }) => {
                     </thead>
                     <tbody>
                       {requestedAttrs.map((attr) => {
-                        const val = currentProofCredential?.attrs?.[attr];
+                        const val = getCredentialClaimValue(currentProofCredential, attr);
                         const hasVal = val !== undefined;
-                        const isRevealed = !!revealedAttributes[attr];
+                        const isRevealed = revealedAttributes[attr] !== false;
 
                         return (
                           <tr key={attr}>

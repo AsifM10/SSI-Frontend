@@ -4,14 +4,14 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/src/assets/cdac-logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="color-scheme" content="light dark" />
     <title>SSI Platform - Self-Sovereign Identity</title>
-    <!-- Google Fonts: Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
+    <!--
+      Fonts are served from the local system stack (see src/styles/reset.css).
+      Third-party font CDNs are intentionally not used: they expose user IPs,
+      add an external supply-chain dependency and cannot be pinned with SRI.
+    -->
   </head>
   <body>
     <div id="root"></div>

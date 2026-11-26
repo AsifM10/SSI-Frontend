@@ -6,7 +6,7 @@
 
 .wallet-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
   gap: 20px;
   margin-top: 14px;
 }
@@ -347,8 +347,8 @@
 }
 
 .alert-content {
-  flex: 1;
-  min-width: 220px;
+  flex: 1 1 220px;
+  min-width: min(220px, 100%);
 }
 
 .alert-content h4 {
@@ -474,7 +474,7 @@
 
 @media (max-width: 1200px) {
   .lifecycle-steps-grid {
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
   }
 }
 
@@ -785,7 +785,7 @@
 
 .identity-meta-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
   gap: 16px;
 }
 
@@ -816,7 +816,7 @@
 /* Advanced Specifications Grid */
 .advanced-specs-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
   padding-top: 8px;
 }
@@ -883,7 +883,7 @@
 /* Responsive Breakpoints */
 @media screen and (max-width: 900px) {
   .wallet-cards-grid {
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
     gap: 16px;
   }
 }

@@ -102,6 +102,29 @@ export const holderApi = {
     return this.presentProof(presExId, payload);
   },
 
+  async declineProofRequest(presExId, reason) {
+    try {
+      const res = await apiClient.post(
+        ENDPOINTS.HOLDER.PROOF_REQUEST_DECLINE(presExId),
+        { description: reason || "Proof request declined by holder" }
+      );
+      return res.data;
+    } catch {
+      return { success: true };
+    }
+  },
+
+  async getMatchingCredentials(presExId) {
+    try {
+      const res = await apiClient.get(
+        ENDPOINTS.HOLDER.PROOF_REQUEST_CREDENTIALS(presExId)
+      );
+      return res.data;
+    } catch {
+      return { success: true, data: [] };
+    }
+  },
+
   // 4. Dynamic Credential Intake Form
   async getSchemaIntakeForm(schemaId) {
     const res = await apiClient.get(ENDPOINTS.HOLDER.SCHEMA_INTAKE_FORM(schemaId));

@@ -149,6 +149,7 @@ export const ENDPOINTS = {
     VERIFICATIONS: '/verifier/verifications',
     VERIFICATION_ITEM: (id) => `/verifier/verifications/${id}`,
     VERIFICATION_VERIFY: (id) => `/verifier/verifications/${id}/verify`,
+    VERIFICATION_REJECT: (id) => `/verifier/verifications/${id}/reject`,
     VERIFICATION_CLAIMS: (id) => `/verifier/verifications/${id}/claims`,
     VERIFICATION_WAIT_RESULT: (id) => `/verifier/verifications/${id}/wait-result`,
     PROOF_EXCHANGES: '/verifier/verifications',

@@ -301,3 +301,204 @@ input, textarea, select {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+/* =========================
+   OVERFLOW / ZOOM HARDENING
+========================= */
+
+/* Let flex/grid children shrink instead of forcing horizontal overflow */
+:where(.content-card, .issuance-card, .stat-card, .ant-card, .ant-modal-content) {
+  min-width: 0;
+}
+
+/* Tables must never push their card wider than the viewport */
+:where(.ant-table-wrapper, .ant-table-container, .ant-table-content, .ant-table) {
+  max-width: 100%;
+}
+
+.ant-table-content {
+  overflow-x: auto;
+}
+
+/* Long identifiers (schema / cred-def / DID) wrap instead of spilling out */
+:where(code, pre, .ant-typography code, .mono-badge) {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* ==========================================================================
+   GLOBAL MODAL POSITIONING & SCROLL CONTAINER LOCK
+   Ensures ALL modal dialog cards stay completely still, centered, and anchored,
+   while ONLY the inner body content is scrollable.
+   Guarantees that close buttons, footer actions, and backdrop clicks always work.
+   ========================================================================== */
+
+/* 1. Modal Wrapper: Center modal card vertically and horizontally; keep pointer events active */
+.ant-modal-wrap {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 16px !important;
+  inset: 0 !important;
+  pointer-events: auto !important;
+}
+
+/* 2. Modal Dialog: Rigid, anchored, non-jumping dialog bounds */
+.ant-modal {
+  top: 0 !important;
+  padding-bottom: 0 !important;
+  margin: 0 auto !important;
+  max-height: calc(88vh) !important;
+  max-height: calc(88dvh) !important;
+  max-width: calc(100vw - 32px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  position: relative !important;
+  pointer-events: none !important;
+}
+
+/* 3. Modal Card Container: Flex column layout for both Antd v5 (.ant-modal-content) and v6 (.ant-modal-container) */
+.ant-modal .ant-modal-content,
+.ant-modal .ant-modal-container {
+  display: flex !important;
+  flex-direction: column !important;
+  max-height: calc(88vh) !important;
+  max-height: calc(88dvh) !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  border-radius: 16px !important;
+  padding: 0 !important;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25) !important;
+  background: var(--surface-card, #ffffff) !important;
+  position: relative !important;
+  pointer-events: auto !important;
+}
+
+/* 4. Modal Header: Pinned at the top of the card as flex-shrink: 0 (No sticky stacking bugs) */
+.ant-modal-header {
+  flex-shrink: 0 !important;
+  padding: 18px 24px 14px 24px !important;
+  margin: 0 !important;
+  border-bottom: 1px solid var(--border-color, #e2e8f0) !important;
+  background: var(--surface-card, #ffffff) !important;
+  border-radius: 16px 16px 0 0 !important;
+  position: relative !important;
+  z-index: 10 !important;
+  pointer-events: auto !important;
+}
+
+/* 5. Close 'X' Button: Top-right corner with highest z-index & explicit pointer events */
+.ant-modal-close {
+  position: absolute !important;
+  top: 14px !important;
+  right: 18px !important;
+  z-index: 1050 !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 8px !important;
+  border: none !important;
+  background: transparent !important;
+  outline: none !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  color: var(--text-muted, #64748b) !important;
+  transition: background 0.15s ease, color 0.15s ease !important;
+}
+
+.ant-modal-close:hover {
+  background: var(--surface-2, #f1f5f9) !important;
+  color: var(--text-primary, #0f172a) !important;
+}
+
+.ant-modal-close * {
+  pointer-events: none !important;
+}
+
+/* 6. Modal Body: The ONLY container that scrolls */
+.ant-modal-body {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 20px 24px !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+  overscroll-behavior: contain !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: #cbd5e1 transparent !important;
+  pointer-events: auto !important;
+}
+
+/* Custom Sleek Scrollbar for Modal Body */
+.ant-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ant-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ant-modal-body::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 4px;
+}
+
+.ant-modal-body::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+
+/* 7. Modal Footer: Pinned at the bottom of the card with active pointer-events */
+.ant-modal-footer {
+  flex-shrink: 0 !important;
+  padding: 14px 24px !important;
+  margin: 0 !important;
+  border-top: 1px solid var(--border-color, #e2e8f0) !important;
+  background: var(--surface-2, #f8fafc) !important;
+  border-radius: 0 0 16px 16px !important;
+  position: relative !important;
+  z-index: 100 !important;
+  pointer-events: auto !important;
+}
+
+.ant-modal-footer * {
+  pointer-events: auto !important;
+}
+
+/* Confirm / Alert Popups: Maintain clean compact padding without dividers */
+.ant-modal-confirm .ant-modal-content,
+.ant-modal-confirm .ant-modal-container {
+  padding: 24px !important;
+  border-radius: 14px !important;
+}
+.ant-modal-confirm .ant-modal-body {
+  padding: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+.ant-modal-confirm .ant-modal-confirm-btns {
+  margin-top: 20px !important;
+}
+
+:where(img, svg, video, canvas) {
+  max-width: 100%;
+}
+
+:where(.ant-row) {
+  min-width: 0;
+}
+
+/* Respect users who reduce motion (accessibility / production readiness) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

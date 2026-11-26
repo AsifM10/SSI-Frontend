@@ -81,7 +81,7 @@
 /* Card Grid */
 .directory-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(330px, 100%), 1fr));
   gap: 20px;
   margin-top: 20px;
 }
@@ -199,7 +199,7 @@
 /* Responsive Media Queries */
 @media (max-width: 992px) {
   .directory-cards-grid {
-    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr));
     gap: 16px;
   }
 }
